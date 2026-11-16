@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Crystal Detailing — карточка для соцсетей (заглушка), 1200×630.
+
+  ПОЧЕМУ SVG, А НЕ JPG
+  Заказчик подменит файл своим снимком — тогда формат будет JPEG, это норма.
+  Но заглушку рисовать растром нечем: в проекте нет ни Pillow, ни ImageMagick,
+  ни cairosvg, а «настоящий» JPEG руками — это сотни строк кодера, то есть
+  риск вместо пользы. SVG-заглушка честно решает задачу (превью выглядит
+  оформленным) и не тянет внешних зависимостей. Расплата: часть старых
+  краулеров (некоторые версии Facebook и Twitter) SVG не отрисует — они
+  покажут превью без картинки. Для живого запуска карточку стоит заменить.
+
+  ТЕКСТ
+  Шрифт только системный: Google-шрифт Manrope на момент рендера в краулере
+  недоступен, подставлять его нельзя. system-ui даёт Segoe UI на Windows,
+  Roboto на Android, SF на macOS — во всех случаях кириллица и армянский
+  есть в комплекте.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"
+     role="img" aria-label="Crystal Detailing — детейлинг-центр">
+  <title>Crystal Detailing — детейлинг-центр</title>
+
+  <defs>
+    <linearGradient id="og-gem" x1="10%" y1="0%" x2="90%" y2="100%">
+      <stop offset="0%" stop-color="#F6E7AC"/>
+      <stop offset="34%" stop-color="#E3C565"/>
+      <stop offset="68%" stop-color="#C9A227"/>
+      <stop offset="100%" stop-color="#8A6D12"/>
+    </linearGradient>
+    <linearGradient id="og-gem-shade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#C9A227"/>
+      <stop offset="100%" stop-color="#7A5F0F"/>
+    </linearGradient>
+    <linearGradient id="og-gem-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF8DE"/>
+      <stop offset="100%" stop-color="#E3C565"/>
+    </linearGradient>
+
+    <!-- Мягкое золотое свечение за камнем: тёмная карточка без него мертва. -->
+    <radialGradient id="og-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#C9A227" stop-opacity="0.30"/>
+      <stop offset="55%" stop-color="#C9A227" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#C9A227" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="og-rule" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C9A227" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#C9A227" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#C9A227" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="og-metal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E8EAEE"/>
+      <stop offset="45%" stop-color="#C9CDD3"/>
+      <stop offset="100%" stop-color="#8C929C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Графит палитры сайта. -->
+  <rect width="1200" height="630" fill="#0A0A0C"/>
+  <ellipse cx="600" cy="268" rx="520" ry="300" fill="url(#og-glow)"/>
+
+  <!-- Метка-заглушка. Видна человеку в превью и на самом сайте:
+       карточку нельзя принять за финальную. -->
+  <g font-family="system-ui, 'Segoe UI', Roboto, sans-serif">
+    <rect x="64" y="56" width="404" height="46" rx="23"
+          fill="none" stroke="#C9A227" stroke-opacity="0.55"/>
+    <circle cx="92" cy="79" r="6" fill="#E3C565"/>
+    <text x="112" y="87" fill="#E3C565" font-size="21" font-weight="600"
+          letter-spacing="1.4">Временная карточка — заменить</text>
+  </g>
+
+  <!-- Камень. Геометрия та же, что в logo-placeholder.svg, сдвинута в угол. -->
+  <g transform="translate(64 196) scale(2.05)">
+    <path d="M19 7 H45 L60 23 L32 60 L4 23 Z"
+          fill="none" stroke="#FFF3C4" stroke-width="1.6" stroke-linejoin="round"
+          stroke-opacity="0.7"/>
+    <path d="M19 7 H45 L32 19 Z"   fill="url(#og-gem-top)"/>
+    <path d="M45 7 L60 23 L41.5 20.7 L32 19 Z"  fill="#D9B94A"/>
+    <path d="M19 7 L32 19 L22.5 20.7 L4 23 Z"   fill="#EFDC9A"/>
+    <path d="M4 23 L22.5 20.7 L32 33 Z"         fill="#C9A227"/>
+    <path d="M4 23 L32 33 L32 60 Z"             fill="url(#og-gem-shade)"/>
+    <path d="M60 23 L48 34.4 L32 33 L41.5 20.7 Z" fill="#B08D1E"/>
+    <path d="M4 23 L32 60 L22 41 Z"             fill="#6E5510"/>
+    <path d="M60 23 L32 60 L48 34.4 Z"          fill="#9C7C18"/>
+  </g>
+
+  <!-- Лок-ап: имя бренда, разделитель, теглайн. -->
+  <g font-family="system-ui, 'Segoe UI', Roboto, sans-serif">
+    <text x="292" y="300" fill="url(#og-metal)" font-size="96" font-weight="800"
+          letter-spacing="5">CRYSTAL</text>
+    <text x="292" y="354" fill="#C9A227" font-size="30" font-weight="600"
+          letter-spacing="11">DETAILING CENTRE</text>
+
+    <rect x="292" y="392" width="520" height="2" fill="url(#og-rule)"/>
+
+    <text x="292" y="452" fill="#F5F5F7" font-size="34" font-weight="600"
+          letter-spacing="0.4">Полировка · Керамика · Химчистка · PPF</text>
+    <text x="292" y="500" fill="#A1A1AA" font-size="26" font-weight="400">
+      Детейлинг-центр · Липецк
+    </text>
+  </g>
+
+  <!-- Нижняя золотая линия: закрывает карточку и держит композицию. -->
+  <rect x="0" y="626" width="1200" height="4" fill="url(#og-rule)"/>
+</svg>

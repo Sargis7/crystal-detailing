@@ -1,0 +1,272 @@
+% --- Диаграмма 1 ---
+sequenceDiagram
+    autonumber
+    participant B as Браузер
+    participant HTML as index.html
+    participant I18n as core/i18n.js
+    participant Store as core/store.js
+    participant Events as core/events.js
+    participant Main as main.js
+    participant Nav as nav.js
+    participant Ui as ui.js
+    participant Gal as gallery.js
+    participant Calc as calculator.js
+    participant Prov as vin/provider.js
+    participant Form as form.js
+    participant Ck as cookie.js
+
+    B->>HTML: GET /
+    Note over HTML: <script type="module" src="js/main.js"><br/>в самом низу body — не блокирует LCP
+    HTML-->>B: DOM построен
+
+    B->>Main: module evaluated
+    Main->>Events: init()
+    Main->>Store: init()  (try localStorage → fallback memory)
+
+    Note over Main,I18n: КРИТИЧНО: язык применяется СИНХРОННО,<br/>иначе — вспышка русского текста (FOUC)
+    Main->>I18n: init({store, events})
+    I18n->>I18n: resolveInitial() → ?lang → localStorage → navigator.language → 'ru'
+    I18n->>RuDict: import (статически, всегда)
+    I18n->>HyDict: import (статически, всегда — словари малы, ~12 КБ на язык)
+    I18n->>I18n: setLanguage(initial) → applyToDom(document)
+    I18n->>I18n: documentElement.lang = initial
+    I18n-)Events: emit('i18n:changed', {lang})
+
+    Main->>Nav: init()
+    Nav->>I18n: t('nav.*')
+    Nav->>Nav: sticky, burger, IntersectionObserver для активного анкора
+
+    Main->>Ui: init()
+    Ui->>Ui: revealOnScroll() (guard prefers-reduced-motion)
+    Ui->>I18n: t('calc.tooltipWhere') — тултип VIN
+
+    Main->>Gal: init()
+    Gal->>CONFIG: features.galleryLightbox
+    Gal->>Gal: render() — 6 слотов из assets/gallery/
+
+    Main->>Ck: init()
+    Ck->>Store: get('crystal_cookie_consent')
+    alt Согласие уже дано
+        Ck->>Ck: не показывать баннер
+        Ck-)Events: emit('cookie:consent', {value})
+    else Согласия нет
+        Ck->>Ck: show() — баннер внизу, не перекрывает CTA на мобильных
+    end
+
+    Main->>Calc: init()
+    Calc->>I18n: t('calc.*')
+    Calc->>Prov: getProvider()   (async — не блокирует первый экран)
+    Note over Prov: provider='api' + placeholder key → console.warn<br/>+ тихий откат на LocalProvider (C5)
+    Prov-->>Calc: VinProvider
+
+    Main->>Form: init()
+    Form->>CONFIG: branches, telegram
+    Form-)Events: on('form:prefill'), on('i18n:changed')
+    Form->>Form: если Telegram не настроен (Q6) → показать/скрыть предупреждение
+
+    Main-)B: страница готова
+
+% --- Диаграмма 2 ---
+sequenceDiagram
+    autonumber
+    participant U as Пользователь
+    participant Calc as calculator.js
+    participant I18n as core/i18n.js
+    participant Prov as vin/provider.js
+    participant Dec as vin/decoder.js
+    participant Data as vin/data.js
+    participant Pr as vin/pricing.js
+    participant Events as core/events.js
+    participant Form as form.js
+
+    U->>Calc: вводит VIN, нажимает «Рассчитать»
+    Calc->>Calc: нормализация (trim, uppercase, убрать пробелы и дефисы)
+    Calc->>Dec: validateVin(vin)
+    Dec-->>Calc: {valid, errorCode, invalidChars}
+
+    alt VIN невалиден
+        Calc->>I18n: t('calc.err.' + errorCode, {chars})
+        I18n-->>Calc: локализованный текст
+        Calc->>Calc: renderError() — сообщение под полем, aria-live="polite"
+        Calc->>Calc: показать путь «выбрать класс вручную» (R-27)
+    else VIN валиден
+        Calc->>Calc: setState('loading') — скелетон результата
+        Calc->>Prov: decode(vin)
+
+        alt provider = 'local'
+            Prov->>Dec: decodeVinLocal(vin)
+            Dec->>Data: WMI_TABLE[vin.slice(0,3)]
+            Data-->>Dec: {make, region} | null  (с wildcard-фолбэком)
+            Dec->>Data: YEAR_CODES + эвристика эпохи
+            Data-->>Dec: year | null
+            Dec->>Data: MODEL_PREFIXES[vin.slice(3,8)]
+            Data-->>Dec: {model, confidence} | null
+            Dec-->>Prov: VehicleInfo{ source:'local' }
+        else provider = 'api'
+            Prov->>Prov: fetch(apiBase, {signal: timeout(8000)})
+            alt API ответил
+                Prov->>Pr: resolveClass(normalized)
+                Pr-->>Prov: carClass
+                Prov-->>Calc: VehicleInfo{ source:'api' }
+            else Таймаут / ошибка / пустой ответ
+                Note over Prov: fallbackToLocal=true → тихий откат
+                Prov->>Dec: decodeVinLocal(vin)
+                Dec-->>Prov: VehicleInfo{ source:'local' }
+                Prov-->>Calc: VehicleInfo
+            end
+        end
+
+        Calc->>Pr: resolveClass(info)
+        alt Модель распознана
+            Pr->>Data: CLASS_TABLE — поиск по match[]
+            Data-->>Pr: carClass 1..5, guessed=false
+        else Модель не распознана
+            Pr-->>Calc: carClass = CONFIG.pricing.defaultClass, guessed=true
+            Calc->>Calc: подсказка «класс не определён — уточните» (R-27)
+        end
+
+        Calc->>Pr: quoteAll(carClass)
+        loop по CONFIG.pricing.services
+            Pr->>Pr: total = basePrice × (scaleByClass ? MULTIPLIERS[cls] : 1)
+            Pr->>Pr: low = round(total × 0.9); high = round(total × 1.2)
+        end
+        Pr-->>Calc: PriceQuote[]
+
+        Calc->>Calc: renderResult(info, quotes)
+        Note over Calc: Диапазон + дисклеймер t('calc.disclaimer') —<br/>обязательно рядом с числом (R-25)
+        Calc-)Events: emit('calc:result', {vehicleInfo, quotes, serviceId})
+    end
+
+    U->>Calc: «Отправить заявку с этим расчётом»
+    Calc->>Events: emit('form:prefill', {model, carClass, serviceId, prices})
+    Events->>Form: on('form:prefill')
+    Form->>Form: заполнить «Модель», запомнить CalcContext
+    Form->>Form: scrollIntoView(секция формы)
+
+% --- Диаграмма 3 ---
+sequenceDiagram
+    autonumber
+    participant U as Пользователь
+    participant Form as form.js
+    participant I18n as core/i18n.js
+    participant Tg as telegram.js
+    participant Tr as MessageTransport
+    participant API as api.telegram.org
+    participant Events as core/events.js
+
+    U->>Form: выбирает регион (РФ / Армения)
+    Form->>I18n: t('form.branchHint' + Region)
+    Note over Form: Подсказка «Ваша заявка уйдёт менеджеру в …» —<br/>снимает страх «не туда отправил» (§7.1 PRD)
+
+    U->>Form: заполняет поля, ставит согласие, жмёт «Отправить»
+    Form->>Form: guard: state==='sending' → return (защита от дабл-клика, R-36)
+    Form->>Form: honeypot заполнен? → тихо игнорировать (R-37)
+    Form->>Form: normalizePhone(raw, branch) — маска +7 / +374 (R-35)
+    Form->>Form: validate()
+
+    alt Есть ошибки
+        Form->>I18n: t('form.err.*')
+        Form->>Form: setState('idle'), ошибки у полей, focus на первом невалидном
+    else Валидно
+        Form->>Form: setState('sending') — кнопка disabled, «Отправляем…»
+        Form->>Form: collect() → LeadPayload{ branch, name, phone, model, comment,<br/>consent, lang, pageUrl, iso8601, calc }
+        Form->>Tg: sendLead(payload)
+
+        Tg->>Tg: определить целевой чат по payload.branch
+        Note over Tg: branch='ru' → CONFIG.telegram.chats.ru.chatId<br/>branch='am' → CONFIG.telegram.chats.am.chatId  (R-32)
+        Tg->>Tg: debugLogRouting → console.info('lead → branch=am, chat=…')
+        Tg->>Tg: buildMessage(payload) — plain text, без parse_mode
+
+        alt transport = 'direct'
+            Tg->>Tr: createDirectTransport()
+        else transport = 'proxy'
+            Tg->>Tr: createProxyTransport()
+        end
+
+        alt Токен или chatId — placeholder
+            Tg-->>Form: {ok:false, status:'not_configured', targetBranch, targetChatId:''}
+            Note over Tg: Сетевой запрос НЕ выполняется (требование R-33)
+            Form->>I18n: t('form.notConfigured')
+            Form->>Form: показать предупреждение (если showConfigWarningToUser)<br/>+ телефоны как резервный канал
+            Form->>Form: setState('idle') — данные НЕ теряются
+        else Конфиг заполнен
+            Tr->>API: POST sendMessage {chat_id, text}
+            alt HTTP 200, ok:true
+                API-->>Tr: {ok:true, result:{message_id}}
+                Tr-->>Tg: {ok:true, status:'sent'}
+                Tg-->>Form: SendResult
+                Form->>Form: setState('success') — экран «Заявка отправлена»<br/>+ кнопки WhatsApp/Telegram
+                Form-)Events: emit('form:sent', {branch})
+            else HTTP 4xx/5xx или ok:false
+                API-->>Tr: {ok:false, description}
+                Tr-->>Tg: {ok:false, status:'api_error', detail}
+                Tg->>Tg: sendFallback(payload) — если emailEndpoint задан (R-39)
+                Tg-->>Form: SendResult
+                Form->>Form: setState('error') — телефон + ссылка WhatsApp (R-36)
+            else Таймаут / сеть недоступна
+                Tr-->>Tg: {ok:false, status:'timeout'|'network'}
+                Tg-->>Form: SendResult
+                Form->>Form: setState('error')
+            end
+        end
+    end
+
+% --- Диаграмма 4 ---
+sequenceDiagram
+    autonumber
+    participant U as Пользователь
+    participant Nav as nav.js (переключатель)
+    participant I18n as core/i18n.js
+    participant DOM as Документ
+    participant Store as core/store.js
+    participant Events as core/events.js
+    participant Calc as calculator.js
+    participant Form as form.js
+
+    U->>Nav: клик «RU» / «HY» (без перезагрузки, R-10)
+    Nav->>I18n: setLanguage(lang)
+    I18n->>I18n: lang уже активен? → return
+    I18n->>Store: set('crystal_lang', lang)   (R-13)
+    I18n->>DOM: documentElement.lang = lang    (R-14)
+    I18n->>DOM: applyToDom(document)
+    loop по [data-i18n], [data-i18n-html], [data-i18n-placeholder],<br/>[data-i18n-aria], [data-i18n-title]
+        I18n->>I18n: dict[key] ?? ruDict[key] ?? warn('[i18n] missing key: '+key)
+        I18n->>DOM: записать значение (textContent / innerHTML / атрибут)
+    end
+    I18n-)Events: emit('i18n:changed', {lang})
+    Events->>Calc: перерисовка результата с новыми текстами (числа не меняются)
+    Events->>Form: перерисовка подсказок, ошибок, состояния кнопки
+    Events->>Nav: обновить aria-pressed на кнопках RU/HY
+    Note over Calc,Form: Состояние (VIN, поля) НЕ сбрасывается (R-13)
+
+% --- Диаграмма 5 ---
+sequenceDiagram
+    autonumber
+    participant U as Пользователь
+    participant Ck as cookie.js
+    participant Store as core/store.js
+    participant Events as core/events.js
+    participant An as analytics (lazy, только по согласию)
+
+    U->>Ck: первый визит
+    Ck->>Store: get('crystal_cookie_consent')
+    Store-->>Ck: null
+    Ck->>Ck: show() — «Принять» / «Только необходимые» / ссылка на политику
+    Note over Ck: Необязательные cookie и счётчики<br/>до решения НЕ ставятся (L-03)
+
+    alt «Принять»
+        Ck->>Store: set('crystal_cookie_consent', 'all')
+        Ck-)Events: emit('cookie:consent', {value:'all'})
+        Events->>An: initAnalytics() — ленивая подгрузка счётчиков
+    else «Только необходимые»
+        Ck->>Store: set('crystal_cookie_consent', 'necessary')
+        Ck-)Events: emit('cookie:consent', {value:'necessary'})
+        Note over An: Счётчики не подключаются никогда
+    end
+    Ck->>Ck: hide()
+
+    U->>Ck: reload страницы
+    Ck->>Store: get('crystal_cookie_consent')
+    Store-->>Ck: 'all' | 'necessary'
+    Ck->>Ck: баннер не показывается (R-50)
+    Ck-)Events: emit('cookie:consent', {value}) — аналитика поднимается сразу

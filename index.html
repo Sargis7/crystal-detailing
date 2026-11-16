@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<!-- data-price-mode дублирует CONFIG.pricing.priceMode ('on-request') и
+     нужен, чтобы стили карточки цены были верны ещё до выполнения JS.
+     Источник истины — CONFIG: ui.initPriceMode() перезапишет атрибут.
+     При появлении прайса правьте priceMode в js/config.js, а не здесь. -->
+<html lang="ru" data-lang="ru" data-price-mode="on-request">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0C">
+<link rel="canonical" href="./" data-canonical-path="">
+<!-- Абсолютные адреса подставляет js/main.js из CONFIG.brand.siteUrl.
+     Пока ключ не заполнен, значения ниже остаются относительными. -->
+<link rel="alternate" hreflang="ru" href="./" data-canonical-path="">
+<link rel="alternate" hreflang="hy" href="?lang=hy" data-canonical-path="">
+<meta property="og:url" content="">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Crystal Detailing">
+<meta property="og:title" data-i18n-content="meta.ogTitle" content="Crystal — детейлинг-центр">
+<meta property="og:description" data-i18n-content="meta.ogDescription" content="">
+<!-- Превью для соцсетей. Формат SVG — временно: растровый редактор в проекте
+     недоступен. Часть старых краулеров SVG не отрисует; при живом запуске
+     замените файл на JPG 1200×630 (js/config.js, ключ brand.ogImage). -->
+<meta property="og:image" content="assets/og-image-placeholder.svg">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:locale:alternate" content="hy_AM">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="description" data-i18n-content="meta.description" content="">
+<meta name="format-detection" content="telephone=no">
+<title data-i18n="meta.title">Crystal — детейлинг-центр</title>
+
+<!-- Единственная внешняя зависимость проекта: шрифты Google.
+     Noto Sans Armenian обязателен для качественного отображения армянского. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Armenian:wght@400;500;600;700&display=swap">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+
+<!-- Синхронная установка языка ДО первой отрисовки: предотвращает мигание
+     русского текста у армянского посетителя (FOUC). Намеренно написан инлайн
+     и без import: модуль загрузился бы асинхронно, то есть слишком поздно. -->
+<script>
+(function () {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var fromUrl = p.get('lang');
+    var stored = null;
+    try { stored = localStorage.getItem('crystal_lang'); } catch (e) { stored = null; }
+    var nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    var lang = (fromUrl === 'hy' || fromUrl === 'ru') ? fromUrl
+             : (stored === 'hy' || stored === 'ru') ? stored
+             : nav.indexOf('hy') === 0 ? 'hy' : 'ru';
+    document.documentElement.lang = lang;
+    document.documentElement.setAttribute('data-lang', lang);
+  } catch (e) { /* при любой ошибке остаётся русский по умолчанию */ }
+})();
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main" data-i18n="nav.home">К содержанию</a>
+
+<!-- ═══════════ ШАПКА ═══════════ -->
+<header class="site-header" id="site-header" data-header>
+  <div class="container header__inner">
+    <a class="brand" href="#hero" aria-label="Crystal">
+      <img class="brand__mark" src="assets/logo-placeholder.svg" alt="" width="40" height="40" data-config-src="brand.logo">
+      <span class="brand__text">
+        <span class="brand__name">Crystal</span>
+        <span class="brand__tag" data-i18n="services.catDetailing">Детейлинг</span>
+      </span>
+    </a>
+
+    <nav class="nav" id="primary-nav" data-nav data-i18n-aria="nav.menu" aria-label="Меню">
+      <ul class="nav__list">
+        <li><a class="nav__link" href="#services" data-i18n="nav.services">Услуги</a></li>
+        <li><a class="nav__link" href="#pricing" data-i18n="nav.pricing">Прайс-лист</a></li>
+        <li><a class="nav__link" href="#gallery" data-i18n="nav.gallery">Работы</a></li>
+        <li><a class="nav__link" href="#advantages" data-i18n="nav.advantages">Преимущества</a></li>
+        <li><a class="nav__link" href="#contacts" data-i18n="nav.contacts">Контакты</a></li>
+      </ul>
+    </nav>
+
+    <div class="header__actions">
+      <!-- Переключатель языка. Реальный <button>: доступен с клавиатуры,
+           aria-pressed сообщает выбранное состояние. -->
+      <div class="lang" role="group" data-i18n-aria="nav.langLabel" aria-label="Язык сайта">
+        <button type="button" class="lang__btn" data-lang-switch="ru" aria-pressed="false">RU</button>
+        <button type="button" class="lang__btn" data-lang-switch="hy" aria-pressed="false">ՀԱՅ</button>
+      </div>
+
+      <a class="btn btn--ghost btn--sm header__phone" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a>
+
+      <a class="btn btn--lux btn--sm header__cta" href="#pricing" data-i18n="nav.cta">Прайс-лист</a>
+
+      <button type="button" class="burger" data-burger aria-expanded="false" data-i18n-aria="nav.close" data-i18n-title="nav.menu" aria-label="Меню" aria-controls="primary-nav" title="Меню">
+        <span class="burger__box" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ═══════════ ГЛАВНЫЙ ЭКРАН ═══════════ -->
+  <section class="hero" id="hero">
+    <div class="hero__glow hero__glow--a" aria-hidden="true"></div>
+    <div class="hero__glow hero__glow--b" aria-hidden="true"></div>
+    <div class="hero__grid-bg" aria-hidden="true"></div>
+
+    <div class="container hero__inner">
+      <p class="hero__badge">
+        <span class="hero__badge-dot" aria-hidden="true"></span>
+        <span data-i18n="hero.badge">Детейлинг-центр премиум-класса</span>
+      </p>
+
+      <h1 class="hero__title" data-i18n-html="hero.title">Детейлинг премиум-класса</h1>
+
+      <p class="hero__subtitle" data-i18n="hero.subtitle">Профессиональный уход за автомобилем.</p>
+
+      <!-- Ведёт в прайс-лист, а не в калькулятор по VIN: калькулятор
+           временно скрыт (CONFIG.features.vinCalculator = false), и кнопка,
+           ведущая в несуществующую секцию, была бы битой ссылкой. -->
+      <div class="hero__actions">
+        <a class="btn btn--lux btn--lg" href="#pricing" data-i18n="hero.ctaVin">Смотреть цены</a>
+        <a class="btn btn--ghost btn--lg" href="#gallery" data-i18n="hero.ctaWorks">Смотреть работы</a>
+      </div>
+
+      <!-- Второй ряд кнопок: быстрые действия для тех, кто уже готов
+           связаться, а не считать цену. Обе — в одной строке рядом.
+           «Позвонить» ведёт на телефон основного филиала: href собирается
+           main.js из CONFIG.branches[primaryBranch].phoneRaw, поэтому номер
+           подставится сам, как только заказчик его впишет. Пока ключ пуст
+           (телефон Еревана ещё не дан), ссылка честно гасится — лучше
+           неактивная кнопка, чем звонок в никуда. -->
+      <div class="hero__actions hero__actions--pair">
+        <a class="btn btn--outline btn--lg" href="tel:+79155501777"
+           data-config-href="branches.am.phoneRaw" data-config-follow-primary
+           data-i18n="hero.ctaCall">Позвонить</a>
+        <a class="btn btn--outline btn--lg" href="#form" data-i18n="hero.ctaLead">Оставить заявку</a>
+      </div>
+
+      <dl class="hero__stats">
+        <div class="hero__stat">
+          <dt class="hero__stat-value" data-i18n="hero.stat1Value">12</dt>
+          <dd class="hero__stat-label" data-i18n="hero.stat1Label">лет опыта</dd>
+        </div>
+        <div class="hero__stat">
+          <dt class="hero__stat-value" data-i18n="hero.stat2Value">4 800+</dt>
+          <dd class="hero__stat-label" data-i18n="hero.stat2Label">автомобилей</dd>
+        </div>
+        <div class="hero__stat">
+          <dt class="hero__stat-value" data-i18n="hero.stat3Value">24/7</dt>
+          <dd class="hero__stat-label" data-i18n="hero.stat3Label">запись онлайн</dd>
+        </div>
+      </dl>
+
+      <a class="hero__scroll" href="#services" tabindex="-1" aria-hidden="true">
+        <span data-i18n="hero.scrollHint">Листайте вниз</span>
+        <span class="hero__scroll-arrow"></span>
+      </a>
+    </div>
+  </section>
+
+  <!-- ═══════════ УСЛУГИ ═══════════ -->
+  <section class="section" id="services">
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="services.title">Услуги</h2>
+        <p class="section__subtitle" data-i18n="services.subtitle">Полный цикл ухода за автомобилем.</p>
+      </header>
+
+      <!-- Сетка категорий: смысловые группы услуг. -->
+      <div class="cats">
+        <div class="cat">
+          <h3 class="cat__title" data-i18n="services.catProtection">Защита кузова</h3>
+          <p class="cat__text" data-i18n="services.catProtectionDesc">Бронеплёнка, оклейка, антихром.</p>
+        </div>
+        <div class="cat">
+          <h3 class="cat__title" data-i18n="services.catTinting">Тонировка</h3>
+          <p class="cat__text" data-i18n="services.catTintingDesc">Тонировка и атермальная плёнка.</p>
+        </div>
+        <div class="cat">
+          <h3 class="cat__title" data-i18n="services.catDetailing">Детейлинг</h3>
+          <p class="cat__text" data-i18n="services.catDetailingDesc">Глубокая очистка и защита.</p>
+        </div>
+      </div>
+
+      <!-- Карточки услуг. Правила, от которых зависит корректность цен:
+           1. data-service-id обязан совпадать с id услуги в
+              CONFIG.pricing.services — по нему строится ключ перевода
+              services.<id>.name / .desc.
+           2. data-price-service / data-price-class на .card__price-value —
+              единственный источник цены. Число в разметке НЕ хранится:
+              его вычисляет js/ui.js из CONFIG, иначе карточка обещала бы
+              цену, которой нет в прайсе (режим 'on-request').
+           3. data-price-hint задаёт подпись под ценой:
+              'class'       — услуга масштабируется по классу (класс рядом);
+              'fixed-price' — цена «от», классом не масштабируется;
+              'on-request'  — цена этой услуги ещё не согласована. -->
+      <div class="cards" data-services>
+
+        <article class="card card--service" data-service-id="engine-bay">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catDetailing">Детейлинг</p>
+          <h3 class="card__title" data-i18n="services.engine-bay.name">Детейлинг подкапотного</h3>
+          <p class="card__text" data-i18n="services.engine-bay.desc">Бережная мойка моторного отсека.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="engine-bay" data-price-class="3"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="class"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="ppf">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catProtection">Защита кузова</p>
+          <h3 class="card__title" data-i18n="services.ppf.name">Оклейка бронеплёнкой</h3>
+          <p class="card__text" data-i18n="services.ppf.desc">Защита лака от сколов и царапин.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="ppf" data-price-class="2"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="wrap-full">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catProtection">Защита кузова</p>
+          <h3 class="card__title" data-i18n="services.wrap-full.name">Полная оклейка кузова</h3>
+          <p class="card__text" data-i18n="services.wrap-full.desc">Смена цвета и защита одновременно.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="wrap-full" data-price-class="2"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="antichrome">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catProtection">Защита кузова</p>
+          <h3 class="card__title" data-i18n="services.antichrome.name">Антихром</h3>
+          <p class="card__text" data-i18n="services.antichrome.desc">Оклейка хромированных элементов.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="antichrome" data-price-class="3"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="fixed-price"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="tint">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catTinting">Тонировка</p>
+          <h3 class="card__title" data-i18n="services.tint.name">Тонировка стёкол</h3>
+          <p class="card__text" data-i18n="services.tint.desc">Задняя полусфера или весь автомобиль.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="tint" data-price-class="2"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="tint-athermal">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catTinting">Тонировка</p>
+          <h3 class="card__title" data-i18n="services.tint-athermal.name">Атермальная тонировка</h3>
+          <p class="card__text" data-i18n="services.tint-athermal.desc">Отсекает жару, не ухудшая обзор.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="tint-athermal" data-price-class="2"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="polish">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catDetailing">Детейлинг</p>
+          <h3 class="card__title" data-i18n="services.polish.name">Полировка кузова</h3>
+          <p class="card__text" data-i18n="services.polish.desc">Удаление царапин и голограмм.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="polish" data-price-class="3"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="ceramic">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catDetailing">Детейлинг</p>
+          <h3 class="card__title" data-i18n="services.ceramic.name">Керамическое покрытие</h3>
+          <p class="card__text" data-i18n="services.ceramic.desc">Твёрдый гидрофобный слой на годы.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="ceramic" data-price-class="2"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+        <article class="card card--service" data-service-id="interior">
+          <div class="card__shine" aria-hidden="true"></div>
+          <p class="card__cat" data-i18n="services.catDetailing">Детейлинг</p>
+          <h3 class="card__title" data-i18n="services.interior.name">Химчистка салона</h3>
+          <p class="card__text" data-i18n="services.interior.desc">Ткань, кожа и пластик без следов.</p>
+          <p class="card__price">
+            <span class="card__price-from" data-i18n="services.from">от</span>
+            <span class="card__price-value" data-price-service="interior" data-price-class="2"></span>
+            <span class="card__price-cur" data-i18n="services.currency">₽</span>
+          </p>
+          <p class="card__hint" data-price-hint="on-request"></p>
+          <a class="card__link" href="#pricing" data-i18n="services.detail">Подробнее</a>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ КАЛЬКУЛЯТОР VIN ═══════════ -->
+  <!-- Подбор цены по VIN временно скрыт (CONFIG.features.vinCalculator = false,
+       решение заказчика, ноябрь 2026). Разметка остаётся на месте: вернуть
+       секцию — одна правка в config.js, переписывать HTML не нужно.
+       Атрибут data-feature читает main.js и ставит hidden на секцию. -->
+  <section class="section section--calc" id="calculator" data-feature="vinCalculator">
+    <div class="calc__glow" aria-hidden="true"></div>
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="calc.title">Калькулятор стоимости</h2>
+        <p class="section__subtitle" data-i18n="calc.subtitle">Введите VIN — рассчитаем цену по классу автомобиля.</p>
+      </header>
+
+      <!-- Форма НЕ отправляется на сервер: обработчик перехватывает submit.
+           novalidate — валидацию ведёт наш модуль, чтобы тексты ошибок
+           были переведены и одинаковы для браузеров. -->
+      <form class="calc glass" data-calc novalidate>
+        <div class="calc__fields">
+
+          <div class="field field--vin">
+            <label class="field__label" for="vin-input" data-i18n="calc.vinLabel">VIN-код</label>
+            <div class="field__control">
+              <input
+                class="input input--vin"
+                id="vin-input"
+                name="vin"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                autocapitalize="characters"
+                spellcheck="false"
+                maxlength="17"
+                data-i18n-placeholder="calc.vinPlaceholder"
+                placeholder="Например: XTA21150053942617"
+                aria-describedby="vin-hint vin-error"
+                data-vin-input>
+              <button type="button" class="vin-help" data-vin-help aria-expanded="false" data-i18n-aria="calc.vinTooltipAria"
+                data-i18n-title="calc.vinTooltipTitle" aria-label="Что такое VIN" aria-controls="vin-tooltip" title="Что такое VIN">?</button>
+            </div>
+            <p class="field__hint" id="vin-hint" data-i18n="calc.vinHint">17 символов, без букв I, O, Q.</p>
+
+            <!-- Подсказка о VIN. Скрыта по умолчанию, показывается по кнопке «?».
+                 aria-live не нужен: раскрытие инициировано пользователем. -->
+            <div class="vin-tooltip" id="vin-tooltip" data-vin-tooltip hidden>
+              <p class="vin-tooltip__title" data-i18n="calc.vinTooltipTitle">Что такое VIN</p>
+              <p class="vin-tooltip__text" data-i18n="calc.vinTooltipText">VIN — уникальный номер автомобиля, 17 символов.</p>
+            </div>
+
+            <!-- Контейнер ошибки: aria-live объявляет текст скринридеру. -->
+            <p class="field__error" id="vin-error" role="alert" aria-live="polite" data-vin-error hidden></p>
+          </div>
+
+          <div class="field field--service">
+            <label class="field__label" for="calc-service" data-i18n="calc.serviceLabel">Услуга</label>
+            <select class="input select" id="calc-service" name="service" data-calc-service></select>
+            <p class="field__error" role="alert" aria-live="polite" data-service-error hidden></p>
+          </div>
+
+        </div>
+
+        <div class="calc__actions">
+          <button type="submit" class="btn btn--lux btn--lg" data-calc-submit>
+            <span class="btn__label" data-i18n="calc.submit">Рассчитать</span>
+            <span class="spinner" data-calc-spinner hidden aria-hidden="true"></span>
+          </button>
+          <button type="button" class="btn btn--ghost" data-calc-reset data-i18n="calc.reset">Сбросить</button>
+          <p class="calc__loading" data-calc-loading hidden aria-live="polite" data-i18n="calc.loading">Распознаём VIN…</p>
+        </div>
+      </form>
+
+      <!-- Результат. aria-live="polite": после расчёта скринридер прочитает
+           итог, не перебивая пользователя. -->
+      <div class="calc-result glass" data-calc-result hidden aria-live="polite" data-i18n-aria="calc.ariaResult" aria-label="Результат расчёта">
+        <div class="calc-result__head">
+          <div>
+            <p class="calc-result__label" data-i18n="calc.resultTitle">Результат расчёта</p>
+            <p class="calc-result__car" data-calc-car>—</p>
+          </div>
+          <span class="badge" data-calc-source hidden></span>
+        </div>
+
+        <dl class="calc-result__specs">
+          <div class="calc-result__spec">
+            <dt data-i18n="calc.resultMake">Марка</dt>
+            <dd data-calc-make>—</dd>
+          </div>
+          <div class="calc-result__spec">
+            <dt data-i18n="calc.resultModel">Модель</dt>
+            <dd data-calc-model>—</dd>
+          </div>
+          <div class="calc-result__spec">
+            <dt data-i18n="calc.resultYear">Год</dt>
+            <dd data-calc-year>—</dd>
+          </div>
+          <div class="calc-result__spec">
+            <dt data-i18n="calc.resultClass">Класс</dt>
+            <dd data-calc-class>—</dd>
+          </div>
+        </dl>
+
+        <p class="calc-result__guess" data-calc-guess hidden data-i18n="calc.guessNotice">
+          Модель распознана не полностью — класс определён приблизительно.
+        </p>
+
+        <div class="calc-result__price">
+          <p class="calc-result__price-label" data-i18n="calc.resultPrice">Стоимость</p>
+          <p class="calc-result__price-value" data-calc-price>—</p>
+          <p class="calc-result__price-note" data-calc-disclaimer data-i18n="calc.disclaimer">
+            Итоговая цена уточняется после осмотра автомобиля.
+          </p>
+        </div>
+
+        <div class="calc-result__actions">
+          <a class="btn btn--lux" href="#form" data-calc-prefill data-i18n="calc.ctaPrefill">Записаться на эту услугу</a>
+        </div>
+
+        <!-- Ручной выбор класса: показывается, когда модель по VIN не распознана. -->
+        <div class="calc-manual" data-calc-manual hidden>
+          <p class="calc-manual__title" data-i18n="calc.manualTitle">Не удалось определить модель</p>
+          <p class="calc-manual__text" data-i18n="calc.manualText">Выберите класс автомобиля вручную.</p>
+          <label class="field__label" for="calc-class" data-i18n="calc.manualLabel">Класс автомобиля</label>
+          <div class="calc-manual__row">
+            <select class="input select" id="calc-class" data-calc-class-select></select>
+            <button type="button" class="btn btn--ghost btn--sm" data-calc-manual-apply data-i18n="calc.manualApply">Применить</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ошибка расчёта. aria-live="polite" + role="alert" на контейнере. -->
+      <div class="alert alert--error glass" data-calc-error hidden role="alert" aria-live="polite" data-i18n-aria="calc.ariaError" aria-label="Ошибка расчёта">
+        <p class="alert__title" data-calc-error-title data-i18n="calc.err.generic">Не удалось рассчитать стоимость.</p>
+        <p class="alert__text" data-calc-error-text></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ПРАЙС-ЛИСТ ═══════════ -->
+  <!-- Тексты строк НЕ захардкожены: список услуг, их названия, порядок и
+       цифры приходят из CONFIG (pricing.services + pricelist.groups),
+       а отрисовывает их js/pricelist.js. Поэтому удалённая в админке
+       услуга исчезает отсюда сама — дублировать разметку не нужно.
+       Разметка ниже — только каркас; data-pricing-list заполняется скриптом. -->
+  <section class="section section--pricing" id="pricing">
+    <div class="pricing__glow" aria-hidden="true"></div>
+    <div class="container">
+      <header class="section__head">
+        <p class="pricing__eyebrow" data-i18n="pricing.eyebrow">Прайс-лист</p>
+        <h2 class="section__title" data-i18n="pricing.title">Стоимость услуг</h2>
+        <p class="section__subtitle" data-i18n="pricing.subtitle">
+          Полный перечень работ. Итоговую стоимость назовём после осмотра — она зависит от состояния автомобиля.
+        </p>
+      </header>
+
+      <div class="pricing glass" data-pricing-list>
+        <!-- Сюда js/pricelist.js вставляет разделы и строки. Пустое состояние
+             на случай, если скрипт не выполнился или услуг нет вовсе. -->
+        <p class="pricing__empty" data-i18n="pricing.empty">
+          Прайс формируется — загляните позже или спросите стоимость по телефону.
+        </p>
+      </div>
+
+      <div class="pricing__foot">
+        <p class="pricing__note" data-pricing-note></p>
+        <div class="pricing__foot-actions">
+          <a class="btn btn--lux" href="#form" data-i18n="pricing.ctaLead">Узнать точную цену</a>
+          <a class="btn btn--ghost" href="#services" data-i18n="pricing.ctaServices">Описание услуг</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ГАЛЕРЕЯ РАБОТ ═══════════ -->
+  <section class="section" id="gallery">
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="gallery.title">Наши работы</h2>
+        <p class="section__subtitle" data-i18n="gallery.subtitle">Фотографии выполненных заказов.</p>
+      </header>
+
+      <!-- Плитки галереи. Реальных фотографий у нас нет, поэтому каждая
+           плитка — premium-заглушка: градиент, свечение, номер и подпись
+           «Замените это фото на реальную работу». Битых <img> здесь нет
+           намеренно: они выглядят как ошибка вёрстки, а заглушка — как
+           спроектированный элемент. Атрибут data-gallery-src закомментирован
+           в README: чтобы поставить фото, добавьте <img> внутрь плитки. -->
+      <div class="gallery" data-gallery>
+        <button type="button" class="g-tile" data-gallery-item data-index="0">
+          <span class="g-tile__bg g-tile__bg--1" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">01</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 1</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile g-tile--wide" data-gallery-item data-index="1">
+          <span class="g-tile__bg g-tile__bg--2" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">02</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 2</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile" data-gallery-item data-index="2">
+          <span class="g-tile__bg g-tile__bg--3" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">03</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 3</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile" data-gallery-item data-index="3">
+          <span class="g-tile__bg g-tile__bg--4" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">04</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 4</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile" data-gallery-item data-index="4">
+          <span class="g-tile__bg g-tile__bg--5" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">05</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 5</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile g-tile--tall" data-gallery-item data-index="5">
+          <span class="g-tile__bg g-tile__bg--6" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">06</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 6</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ПРЕИМУЩЕСТВА ═══════════ -->
+  <section class="section" id="advantages">
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="adv.title">Почему нас выбирают</h2>
+        <p class="section__subtitle" data-i18n="adv.subtitle">Условия, которые важны для владельца автомобиля.</p>
+      </header>
+
+      <div class="adv">
+        <article class="adv__item">
+          <p class="adv__mark" aria-hidden="true">₽</p>
+          <h3 class="adv__title" data-i18n="adv.payment.title">Оплата</h3>
+          <p class="adv__text" data-i18n="adv.payment.text">Удобные способы оплаты.</p>
+        </article>
+        <article class="adv__item">
+          <p class="adv__mark" aria-hidden="true">P</p>
+          <h3 class="adv__title" data-i18n="adv.parking.title">Парковка</h3>
+          <p class="adv__text" data-i18n="adv.parking.text">Свободная парковка у бокса.</p>
+        </article>
+        <article class="adv__item">
+          <p class="adv__mark" aria-hidden="true">✧</p>
+          <h3 class="adv__title" data-i18n="adv.cleaning.title">Чистота</h3>
+          <p class="adv__text" data-i18n="adv.cleaning.text">Бесплатная экспресс-уборка.</p>
+        </article>
+        <article class="adv__item">
+          <p class="adv__mark" aria-hidden="true">24</p>
+          <h3 class="adv__title" data-i18n="adv.booking.title">Запись</h3>
+          <p class="adv__text" data-i18n="adv.booking.text">Онлайн-запись и подтверждение.</p>
+        </article>
+        <article class="adv__item">
+          <p class="adv__mark" aria-hidden="true">✓</p>
+          <h3 class="adv__title" data-i18n="adv.certificates.title">Сертификаты</h3>
+          <p class="adv__text" data-i18n="adv.certificates.text">Сертифицированные материалы.</p>
+        </article>
+        <article class="adv__item">
+          <p class="adv__mark" aria-hidden="true">★</p>
+          <h3 class="adv__title" data-i18n="adv.experience.title">Опыт</h3>
+          <p class="adv__text" data-i18n="adv.experience.text">Мастера с многолетним стажем.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ ФОРМА ЗАЯВКИ ═══════════ -->
+  <section class="section section--form" id="form">
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="form.title">Запись на услугу</h2>
+        <p class="section__subtitle" data-i18n="form.subtitle">Оставьте заявку — перезвоним и подтвердим время.</p>
+      </header>
+
+      <form class="lead-form glass" data-form novalidate>
+
+        <!-- Выбор филиала: определяет и целевой чат Telegram,
+             и подсказку формата телефона. Кнопки, а не radio —
+             так их проще стилизовать и они доступны с клавиатуры.
+             Активен основной филиал (Ереван) — он же первый в списке;
+             порядок и значение по умолчанию должны совпадать с
+             CONFIG.primaryBranch, иначе заявка по умолчанию уйдёт
+             не в тот чат Telegram. -->
+        <fieldset class="fieldset">
+          <legend class="field__label" data-i18n="form.branchLabel">Филиал</legend>
+          <div class="segmented" data-branch role="radiogroup" data-i18n-aria="form.branchLabel" aria-label="Филиал">
+            <button type="button" class="segmented__btn is-active" data-branch-btn="am" role="radio" aria-checked="true">
+              <span data-i18n="form.branchAm">Армения (Ереван)</span>
+            </button>
+            <button type="button" class="segmented__btn" data-branch-btn="ru" role="radio" aria-checked="false">
+              <span data-i18n="form.branchRu">Россия (Липецк)</span>
+            </button>
+          </div>
+          <p class="field__hint" data-branch-hint data-i18n="form.branchHintAm">Ваша заявка уйдёт менеджеру в Ереване.</p>
+          <p class="field__error" role="alert" aria-live="polite" data-branch-error hidden></p>
+        </fieldset>
+
+        <div class="form__grid">
+          <div class="field">
+            <label class="field__label" for="lf-name">
+              <span data-i18n="form.nameLabel">Имя</span>
+              <span class="field__req" aria-hidden="true">*</span>
+            </label>
+            <input class="input" id="lf-name" name="name" type="text" autocomplete="name"
+              data-i18n-placeholder="form.namePlaceholder" placeholder="Как к вам обращаться"
+              aria-required="true" aria-describedby="lf-name-error" data-field="name">
+            <p class="field__error" id="lf-name-error" role="alert" aria-live="polite" data-error="name" hidden></p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="lf-phone">
+              <span data-i18n="form.phoneLabel">Телефон</span>
+              <span class="field__req" aria-hidden="true">*</span>
+            </label>
+            <input class="input" id="lf-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel"
+              data-i18n-placeholder="form.phonePlaceholderRu" placeholder="+7 (___) ___-__-__"
+              aria-required="true" aria-describedby="lf-phone-error" data-field="phone">
+            <p class="field__error" id="lf-phone-error" role="alert" aria-live="polite" data-error="phone" hidden></p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="lf-model">
+              <span data-i18n="form.modelLabel">Марка и модель</span>
+              <span class="field__req" aria-hidden="true">*</span>
+            </label>
+            <input class="input" id="lf-model" name="model" type="text" autocomplete="off"
+              data-i18n-placeholder="form.modelPlaceholder" placeholder="Например: Toyota Camry"
+              aria-required="true" aria-describedby="lf-model-error" data-field="model">
+            <p class="field__error" id="lf-model-error" role="alert" aria-live="polite" data-error="model" hidden></p>
+          </div>
+
+          <div class="field">
+            <label class="field__label" for="lf-service" data-i18n="form.serviceLabel">Услуга</label>
+            <select class="input select" id="lf-service" name="service" data-form-service></select>
+            <p class="field__error" role="alert" aria-live="polite" data-error="service" hidden></p>
+          </div>
+
+          <div class="field field--full">
+            <label class="field__label" for="lf-comment">
+              <span data-i18n="form.commentLabel">Комментарий</span>
+              <span class="field__opt" data-i18n="form.commentOptional">необязательно</span>
+            </label>
+            <textarea class="input textarea" id="lf-comment" name="comment" rows="3"
+              data-i18n-placeholder="form.commentPlaceholder" placeholder="Удобное время, особенности автомобиля"
+              aria-describedby="lf-comment-error" data-field="comment"></textarea>
+            <p class="field__error" id="lf-comment-error" role="alert" aria-live="polite" data-error="comment" hidden></p>
+          </div>
+        </div>
+
+        <!-- Ловушка для ботов: поле скрыто стилями и недостижимо для человека.
+             Если оно заполнено — заявка отбрасывается без отправки. -->
+        <div class="honeypot" aria-hidden="true">
+          <label for="lf-company">Company</label>
+          <input id="lf-company" name="company" type="text" tabindex="-1" autocomplete="off" data-honeypot>
+        </div>
+
+        <div class="field field--consent">
+          <label class="checkbox">
+            <input type="checkbox" id="lf-consent" name="consent" data-field="consent" aria-required="true"
+              aria-describedby="lf-consent-error" data-consent-input>
+            <span class="checkbox__box" aria-hidden="true"></span>
+            <span class="checkbox__text">
+              <span data-i18n="form.consentLabel">Я согласен на обработку персональных данных</span>
+              <a class="link" href="legal/consent.html" target="_blank" rel="noopener" data-i18n="form.consentRead">(текст согласия)</a>
+            </span>
+          </label>
+          <p class="field__error" id="lf-consent-error" role="alert" aria-live="polite" data-error="consent" hidden></p>
+        </div>
+
+        <div class="form__actions">
+          <button type="submit" class="btn btn--lux btn--lg" data-form-submit>
+            <span class="btn__label" data-i18n="form.submit">Отправить заявку</span>
+            <span class="spinner" data-form-spinner hidden aria-hidden="true"></span>
+          </button>
+          <button type="button" class="btn btn--ghost" data-form-reset data-i18n="form.reset">Очистить</button>
+        </div>
+
+        <!-- Статус отправки. aria-live="polite": результат объявляется
+             скринридеру, не прерывая ввод. -->
+        <div class="form-status" role="status" aria-live="polite" data-form-status hidden data-i18n-aria="form.ariaStatus" aria-label="Статус отправки"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ═══════════ КОНТАКТЫ ═══════════ -->
+  <section class="section" id="contacts">
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="contacts.title">Контакты</h2>
+        <p class="section__subtitle" data-i18n="contacts.subtitle">Приезжайте или напишите нам.</p>
+      </header>
+
+      <div class="contacts">
+        <!-- Карточки филиалов. Значения подставляются из CONFIG.branches:
+             атрибут data-config-* читает модуль ui.js. Если значение
+             не заполнено, вместо выдуманного текста показывается
+             честная пометка «уточняется у заказчика».
+
+             ГЛАВНЫЙ ФИЛИАЛ ИДЁТ ПЕРВЫМ. Сайт делается для Еревана
+             (подтверждено заказчиком, ноябрь 2026), поэтому карточка
+             Армении стоит первой, а Липецк — вторым. Порядок карточек
+             в разметке и порядок ключей в CONFIG.branches должны
+             совпадать: иначе список филиалов в форме и карточки на
+             странице разойдутся. -->
+        <article class="contact-card glass" data-contact-branch="am">
+          <h3 class="contact-card__title" data-i18n="contacts.branchAm">Армения, Ереван</h3>
+          <dl class="contact-card__list">
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.addressLabel">Адрес</dt>
+              <dd data-config-text="branches.am.address" data-config-city="branches.am.city">Ереван, ул. Арташисян, 81/1</dd>
+            </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.phoneLabel">Телефон</dt>
+              <dd>
+                <a class="link" href="#" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone">Уточняется у заказчика</a>
+                <button type="button" class="copy-btn" data-copy-phone="branches.am.phone" data-i18n-aria="contacts.copyPhone"
+                  data-i18n-title="contacts.copyPhone" aria-label="Скопировать телефон" title="Скопировать телефон">⧉</button>
+              </dd>
+            </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.hoursLabel">Часы работы</dt>
+              <dd>
+                <span data-i18n="contacts.hoursValue">Ежедневно, 09:00–21:00</span>
+                <span class="contact-card__note" data-i18n="contacts.hoursNote">по предварительной записи</span>
+              </dd>
+            </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.mapLabel">Карта</dt>
+              <dd><a class="link" href="#" data-config-href="branches.am.mapUrl" data-i18n="contacts.routeLabel" data-placeholder-note>Уточняется у заказчика</a></dd>
+            </div>
+          </dl>
+          <p class="contact-card__note" data-i18n="contacts.placeholderNoteAm">Телефон и ссылка на карту уточняются.</p>
+        </article>
+
+        <article class="contact-card glass" data-contact-branch="ru">
+          <h3 class="contact-card__title" data-i18n="contacts.branchRu">Россия, Липецк</h3>
+          <dl class="contact-card__list">
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.addressLabel">Адрес</dt>
+              <dd data-config-text="branches.ru.address" data-config-city="branches.ru.city">Липецк, Универсальный проезд, 1Г</dd>
+            </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.phoneLabel">Телефон</dt>
+              <dd>
+                <a class="link" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a>
+                <button type="button" class="copy-btn" data-copy-phone="branches.ru.phone" data-i18n-aria="contacts.copyPhone"
+                  data-i18n-title="contacts.copyPhone" aria-label="Скопировать телефон" title="Скопировать телефон">⧉</button>
+              </dd>
+            </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.hoursLabel">Часы работы</dt>
+              <dd>
+                <span data-i18n="contacts.hoursValue">Ежедневно, 09:00–21:00</span>
+                <span class="contact-card__note" data-i18n="contacts.hoursNote">по предварительной записи</span>
+              </dd>
+            </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.mapLabel">Карта</dt>
+              <dd><a class="link" href="https://yandex.ru/maps/?text=%D0%9B%D0%B8%D0%BF%D0%B5%D1%86%D0%BA%2C%20%D0%A3%D0%BD%D0%B8%D0%B2%D0%B5%D1%80%D1%81%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B5%D0%B7%D0%B4%2C%201%D0%93" target="_blank" rel="noopener" data-config-href="branches.ru.mapUrl" data-i18n="contacts.routeLabel">Построить маршрут</a></dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+
+      <!-- Крупные кнопки соцсетей и мессенджеров. Пока ссылка не заполнена
+           в CONFIG.social, кнопка помечается классом is-disabled и не ведёт
+           в никуда — посетитель видит честную подсказку. -->
+      <div class="social">
+        <h3 class="social__title" data-i18n="contacts.socialTitle">Напишите нам</h3>
+        <p class="social__subtitle" data-i18n="contacts.socialSubtitle">Ответим в удобном для вас мессенджере.</p>
+
+        <div class="social__grid" data-social-grid>
+          <a class="social-btn social-btn--wa" href="#" target="_blank" rel="noopener"
+            data-social-link="whatsapp" data-i18n-aria="social.writeWhatsapp" aria-label="Написать в WhatsApp">
+            <span class="social-btn__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
+                <path d="M12.04 2A9.9 9.9 0 0 0 3.6 17.2L2 22l4.9-1.6A9.9 9.9 0 1 0 12.04 2Zm0 1.8a8.1 8.1 0 1 1-4.1 15.1l-.3-.2-2.9.9.9-2.8-.2-.3a8.1 8.1 0 0 1 6.6-12.7Zm-3.6 4c-.2 0-.5.1-.7.3-.3.3-.9.9-.9 2s.9 2.2 1 2.4c.1.2 1.7 2.8 4.2 3.8 2.1.8 2.5.7 3 .6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2l-.1-.2c-.1-.1-.3-.2-.6-.3l-2-.9c-.3-.1-.5-.1-.7.1l-.8 1c-.1.2-.3.2-.5.1-.3-.1-1.1-.4-2-1.2-.7-.7-1.2-1.5-1.3-1.7-.1-.2 0-.4.1-.5l.5-.6c.1-.2.1-.3.1-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5Z"/>
+              </svg>
+            </span>
+            <span class="social-btn__text">
+              <span class="social-btn__name" data-i18n="social.whatsapp">WhatsApp</span>
+              <span class="social-btn__hint" data-i18n="social.notReady">Ссылка уточняется</span>
+            </span>
+          </a>
+
+          <a class="social-btn social-btn--tg" href="#" target="_blank" rel="noopener"
+            data-social-link="telegram" data-i18n-aria="social.writeTelegram" aria-label="Написать в Telegram">
+            <span class="social-btn__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
+                <path d="M21.6 4.3 18.5 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.5 8.2-7.4c.4-.3-.1-.5-.6-.2L6.6 13.4l-4.4-1.4c-1-.3-1-.9.2-1.4l17-6.5c.8-.3 1.5.2 1.2 1.1Z"/>
+              </svg>
+            </span>
+            <span class="social-btn__text">
+              <span class="social-btn__name" data-i18n="social.telegram">Telegram</span>
+              <span class="social-btn__hint" data-i18n="social.notReady">Ссылка уточняется</span>
+            </span>
+          </a>
+
+          <a class="social-btn social-btn--ig" href="#" target="_blank" rel="noopener"
+            data-social-link="instagram" data-i18n-aria="social.openInstagram" aria-label="Открыть Instagram">
+            <span class="social-btn__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor">
+                <path d="M12 2.2c-2.7 0-3 0-4.1.1-1 0-1.8.2-2.4.5a4.9 4.9 0 0 0-1.8 1.1A4.9 4.9 0 0 0 2.6 5.7c-.3.6-.4 1.3-.5 2.4C2 9.2 2 9.5 2 12s0 2.8.1 3.9c0 1 .2 1.8.5 2.4a4.9 4.9 0 0 0 1.1 1.8 4.9 4.9 0 0 0 1.8 1.1c.6.3 1.3.4 2.4.5 1.1.1 1.4.1 4.1.1s3 0 4.1-.1c1 0 1.8-.2 2.4-.5a5.2 5.2 0 0 0 2.9-2.9c.3-.6.4-1.3.5-2.4.1-1.1.1-1.4.1-3.9s0-2.8-.1-3.9c0-1-.2-1.8-.5-2.4a4.9 4.9 0 0 0-1.1-1.8 4.9 4.9 0 0 0-1.8-1.1c-.6-.3-1.3-.4-2.4-.5C15 2.2 14.7 2.2 12 2.2Zm0 1.8c2.7 0 3 0 4 .1.9 0 1.4.2 1.8.3.4.2.7.4 1 .7.3.3.5.6.7 1 .1.3.3.9.3 1.8.1 1 .1 1.3.1 3.9s0 3-.1 4c0 .9-.2 1.4-.3 1.8-.2.4-.4.7-.7 1-.3.3-.6.5-1 .7-.3.1-.9.3-1.8.3-1 .1-1.3.1-4 .1s-3 0-4-.1c-.9 0-1.4-.2-1.8-.3-.4-.2-.7-.4-1-.7-.3-.3-.5-.6-.7-1-.1-.3-.3-.9-.3-1.8-.1-1-.1-1.3-.1-4s0-3 .1-4c0-.9.2-1.4.3-1.8.2-.4.4-.7.7-1 .3-.3.6-.5 1-.7.3-.1.9-.3 1.8-.3 1-.1 1.3-.1 4-.1Zm0 3.1a4.9 4.9 0 1 0 0 9.8 4.9 4.9 0 0 0 0-9.8Zm0 8a3.1 3.1 0 1 1 0-6.2 3.1 3.1 0 0 1 0 6.2Zm6.3-8.2a1.15 1.15 0 1 1-2.3 0 1.15 1.15 0 0 1 2.3 0Z"/>
+              </svg>
+            </span>
+            <span class="social-btn__text">
+              <span class="social-btn__name" data-i18n="social.instagram">Instagram</span>
+              <span class="social-btn__hint" data-i18n="social.notReady">Ссылка уточняется</span>
+            </span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ═══════════ ПОДВАЛ ═══════════ -->
+<footer class="site-footer">
+  <div class="container footer__inner">
+    <div class="footer__col footer__col--brand">
+      <p class="footer__brand">Crystal</p>
+      <p class="footer__about" data-i18n="footer.about">Детейлинг-центр премиум-класса.</p>
+    </div>
+
+    <nav class="footer__col" data-i18n-aria="footer.navTitle" aria-label="Разделы">
+      <p class="footer__title" data-i18n="footer.navTitle">Разделы</p>
+      <ul class="footer__list">
+        <li><a class="footer__link" href="#services" data-i18n="nav.services">Услуги</a></li>
+        <li><a class="footer__link" href="#pricing" data-i18n="nav.pricing">Прайс-лист</a></li>
+        <li><a class="footer__link" href="#gallery" data-i18n="nav.gallery">Работы</a></li>
+        <li><a class="footer__link" href="#contacts" data-i18n="nav.contacts">Контакты</a></li>
+      </ul>
+    </nav>
+
+    <nav class="footer__col" data-i18n-aria="footer.legalTitle" aria-label="Документы">
+      <p class="footer__title" data-i18n="footer.legalTitle">Документы</p>
+      <ul class="footer__list">
+        <li><a class="footer__link" href="legal/privacy-ru.html" data-i18n="footer.privacyRu">Политика (РФ)</a></li>
+        <li><a class="footer__link" href="legal/privacy-am.html" data-i18n="footer.privacyAm">Политика (Армения)</a></li>
+        <li><a class="footer__link" href="legal/consent.html" data-i18n="footer.consent">Согласие на обработку</a></li>
+        <li><a class="footer__link" href="legal/cookies.html" data-i18n="footer.cookies">Использование cookie</a></li>
+      </ul>
+    </nav>
+
+    <div class="footer__col">
+      <p class="footer__title" data-i18n="footer.contactsTitle">Контакты</p>
+      <ul class="footer__list">
+        <!-- Порядок тот же, что и в карточках контактов: сначала основной
+             филиал (Ереван), затем Липецк. Адреса и телефоны подставляет
+             ui.js из CONFIG.branches, поэтому здесь только запасной текст
+             для случая, когда скрипты ещё не выполнились. -->
+        <li><span class="footer__text" data-config-text="branches.am.address" data-config-city="branches.am.city">Ереван, ул. Арташисян, 81/1</span></li>
+        <li><a class="footer__link" href="#" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone">Уточняется у заказчика</a></li>
+        <li><a class="footer__link" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a></li>
+        <li><span class="footer__text" data-config-text="branches.ru.address" data-config-city="branches.ru.city">Липецк, Универсальный проезд, 1Г</span></li>
+      </ul>
+      <p class="footer__title footer__title--mt" data-i18n="footer.socialTitle">Мессенджеры</p>
+      <ul class="footer__list footer__list--social">
+        <li><a class="footer__link" href="#" target="_blank" rel="noopener" data-social-link="whatsapp" data-i18n="social.whatsapp">WhatsApp</a></li>
+        <li><a class="footer__link" href="#" target="_blank" rel="noopener" data-social-link="telegram" data-i18n="social.telegram">Telegram</a></li>
+        <li><a class="footer__link" href="#" target="_blank" rel="noopener" data-social-link="instagram" data-i18n="social.instagram">Instagram</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="container footer__bottom">
+    <p class="footer__copy" data-i18n="footer.rights">© Crystal. Все права защищены.</p>
+    <p class="footer__note" data-i18n="footer.disclaimer">Информация на сайте не является публичной офертой.</p>
+    <p class="footer__note" data-i18n="footer.builtNote">Сайт работает без сборщика: HTML, CSS, JavaScript.</p>
+  </div>
+</footer>
+
+<!-- ═══════════ ЗАГЛУШКА-ОСТАТОК ═══════════ -->
+
+<!-- ═══════════ БАННЕР COOKIE ═══════════
+     Показывается, пока нет сохранённого согласия. Логику ведёт cookie.js:
+     баннер читает localStorage['crystal_cookie_consent'], и аналитика
+     не загружается до нажатия «Принять». Кнопка «Только необходимые»
+     сохраняет отказ — cookie необязательных категорий не ставятся. -->
+<div class="cookie-bar glass" data-cookie-bar hidden role="region" data-i18n-aria="cookie.ariaLabel" aria-label="Уведомление об использовании cookie">
+  <div class="container cookie-bar__inner">
+    <p class="cookie-bar__text">
+      <span data-i18n="cookie.text">Мы используем cookie для работы сайта и аналитики.</span>
+      <a class="link" href="legal/cookies.html" data-i18n="cookie.policyLink">Подробнее</a>
+      <a class="link" href="legal/privacy-ru.html" data-i18n="cookie.privacyLink">Политика конфиденциальности</a>
+    </p>
+    <div class="cookie-bar__actions">
+      <button type="button" class="btn btn--lux btn--sm" data-cookie-accept data-i18n="cookie.accept">Принять</button>
+      <button type="button" class="btn btn--ghost btn--sm" data-cookie-reject data-i18n="cookie.reject">Только необходимые</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ЛАЙТБОКС ГАЛЕРЕИ ═══════════
+     role="dialog" + aria-modal: фокус переносится внутрь и удерживается.
+     Закрытие по Esc, клику по фону и кнопке. Управление — gallery.js. -->
+<div class="lightbox" data-lightbox hidden role="dialog" aria-modal="true" data-i18n-aria="gallery.alt" aria-label="Просмотр работы">
+  <div class="lightbox__backdrop" data-lightbox-close aria-hidden="true"></div>
+  <div class="lightbox__dialog" role="document">
+    <button type="button" class="lightbox__close" data-lightbox-close data-i18n-aria="gallery.close" data-i18n-title="gallery.close" aria-label="Закрыть" title="Закрыть">×</button>
+    <button type="button" class="lightbox__nav lightbox__nav--prev" data-lightbox-prev data-i18n-aria="gallery.prev" data-i18n-title="gallery.prev" aria-label="Предыдущая работа" title="Предыдущая работа">‹</button>
+    <button type="button" class="lightbox__nav lightbox__nav--next" data-lightbox-next data-i18n-aria="gallery.next" data-i18n-title="gallery.next" aria-label="Следующая работа" title="Следующая работа">›</button>
+
+    <div class="lightbox__stage">
+      <div class="lightbox__frame" data-lightbox-frame>
+        <span class="g-tile__bg" data-lightbox-bg aria-hidden="true"></span>
+        <span class="lightbox__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+      </div>
+      <p class="lightbox__caption" data-lightbox-caption data-i18n="gallery.slotCaption">Фото работы</p>
+      <p class="lightbox__counter" data-lightbox-counter data-i18n="gallery.counter">1 / 6</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ ПЛАВАЮЩАЯ КНОПКА WHATSAPP ═══════════
+     Дублирует основной контакт для мобильных: посетителю не нужно
+     возвращаться к блоку контактов. Скрыта, пока ссылка не заполнена. -->
+<a class="fab" href="#" target="_blank" rel="noopener" data-social-link="whatsapp" data-fab
+   data-i18n-aria="social.writeWhatsapp" data-i18n-title="social.writeWhatsapp" aria-label="Написать в WhatsApp" title="Написать в WhatsApp" hidden>
+  <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor" aria-hidden="true">
+    <path d="M12.04 2A9.9 9.9 0 0 0 3.6 17.2L2 22l4.9-1.6A9.9 9.9 0 1 0 12.04 2Zm0 1.8a8.1 8.1 0 1 1-4.1 15.1l-.3-.2-2.9.9.9-2.8-.2-.3a8.1 8.1 0 0 1 6.6-12.7Z"/>
+  </svg>
+</a>
+
+<!-- Кнопка «вверх»: показывается после первого экрана. -->
+<button type="button" class="to-top" data-to-top data-i18n-aria="nav.toTop" data-i18n-title="nav.toTop"
+  aria-label="Наверх" title="Наверх" hidden>
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 19V5M5 12l7-7 7 7"/>
+  </svg>
+</button>
+
+<!-- ═══════════ ЕДИНСТВЕННЫЙ ТЕГ SCRIPT ═══════════
+     type="module" даёт отложенное выполнение: HTML гарантированно разобран
+     к моменту запуска, поэтому DOMContentLoaded-обёртка не нужна.
+     Все зависимости подключаются статическими import внутри main.js.
+     Порядок модулей задан графом импортов, а не порядком тегов. -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

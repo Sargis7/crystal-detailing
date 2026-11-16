@@ -1,0 +1,247 @@
+
+classDiagram
+    direction LR
+
+    class CONFIG {
+        <<module js/config.js>>
+        +brand
+        +branches ru, am
+        +social
+        +telegram
+        +vin
+        +pricing
+        +legal
+        +analytics
+        +features
+        +isPlaceholder(v) bool
+        +isBranchReady(id) obj
+    }
+
+    class I18n {
+        <<module js/core/i18n.js>>
+        -dicts Dict
+        -current string
+        +init() void
+        +setLanguage(lang) void
+        +getLanguage() string
+        +t(key, params) string
+        +applyToDom(root) void
+        +resolveInitial() string
+    }
+
+    class RuDict {
+        +Dict ~210 keys
+    }
+    class HyDict {
+        +Dict ~210 keys
+    }
+
+    class Store {
+        <<module js/core/store.js>>
+        +get(k, def) any
+        +set(k, v) bool
+        +remove(k) void
+    }
+
+    class Events {
+        <<module js/core/events.js>>
+        +on(evt, fn) void
+        +off(evt, fn) void
+        +emit(evt, detail) void
+    }
+
+    class VinData {
+        <<module js/vin/data.js>>
+        +WMI_TABLE ~120
+        +YEAR_CODES
+        +MODEL_PREFIXES
+        +CLASS_TABLE
+        +MULTIPLIERS
+    }
+
+    class VinDecoder {
+        <<module js/vin/decoder.js>>
+        +validateVin(raw) VinValidation
+        +checkNorthAmericanChecksum(v) bool
+        +decodeYear(v) number
+        +decodeWmi(v) obj
+        +decodeModel(v) obj
+        +decodeVinLocal(v) Promise~VehicleInfo~
+    }
+
+    class Pricing {
+        <<module js/vin/pricing.js>>
+        +resolveClass(info) obj
+        +quote(serviceId, cls) PriceQuote
+        +quoteAll(cls) PriceQuote[]
+        +formatRange(q) obj
+    }
+
+    class VinProvider {
+        <<module js/vin/provider.js>>
+        +name string
+        +decode(vin) Promise~VehicleInfo~
+    }
+    class LocalProvider
+    class ApiProvider
+
+    class VehicleInfo {
+        +string vin
+        +string|null make
+        +string|null model
+        +number|null year
+        +string|null region
+        +number carClass
+        +boolean classGuessed
+        +Confidence confidence
+        +string source
+        +string|null errorCode
+    }
+
+    class PriceQuote {
+        +string serviceId
+        +number carClass
+        +number multiplier
+        +number basePrice
+        +number total
+        +number low
+        +number high
+        +boolean fromFixed
+    }
+
+    class MessageTransport {
+        <<interface js/telegram.js>>
+        +name string
+        +send(chatId, text) Promise~SendResult~
+    }
+    class DirectTransport
+    class ProxyTransport
+
+    class TelegramModule {
+        <<module js/telegram.js>>
+        +getTransport() MessageTransport
+        +sendLead(payload) Promise~SendResult~
+        +buildMessage(payload) string
+        +sendFallback(payload) Promise~bool~
+    }
+
+    class LeadPayload {
+        +string branch
+        +string name
+        +string phone
+        +string model
+        +string comment
+        +boolean consent
+        +string lang
+        +string iso8601
+        +CalcContext|null calc
+    }
+
+    class SendResult {
+        +boolean ok
+        +string status
+        +string targetBranch
+        +string targetChatId
+        +string transport
+    }
+
+    class Calculator {
+        <<module js/calculator.js>>
+        -provider VinProvider
+        +init() void
+        +onSubmit() void
+        +renderResult(info, quotes) void
+        +renderError(code, params) void
+        +prefillForm() void
+        +reset() void
+    }
+
+    class FormVM {
+        <<module js/form.js>>
+        +init() void
+        +validate() obj
+        +normalizePhone(raw, branch) string
+        +collect() LeadPayload
+        +submit() Promise~SendResult~
+        +setState(s) void
+    }
+
+    class CookieBanner {
+        <<module js/cookie.js>>
+        +init() void
+        +show() void
+        +accept() void
+        +reject() void
+        +isConsented() bool
+        +onConsent(fn) void
+    }
+
+    class Gallery {
+        +init() void
+        +render() void
+        +openLightbox(i) void
+    }
+    class Nav {
+        +init() void
+        +onScroll() void
+        +toggleBurger() void
+    }
+    class Ui {
+        +init() void
+        +revealOnScroll() void
+        +initTooltips() void
+    }
+    class Main {
+        +bootstrap() Promise~void~
+    }
+
+    %% --- связи ---
+    CONFIG <.. I18n : читает language config
+    I18n o-- RuDict
+    I18n o-- HyDict
+    I18n ..> Store : crystal_lang
+    I18n ..> Events : emit i18n:changed<br/>set html lang
+    Store <.. CookieBanner : crystal_cookie_consent
+
+    VinDecoder ..> VinData : использует таблицы
+    Pricing ..> VinData : MULTIPLIERS
+    Pricing ..> CONFIG : pricing.services
+    VinProvider <|.. LocalProvider : реализует
+    VinProvider <|.. ApiProvider : реализует
+    LocalProvider ..> VinDecoder : decodeVinLocal
+    LocalProvider ..> Pricing : resolveClass
+    ApiProvider ..> Pricing : resolveClass<br/>(нормализация ответа)
+    VinProvider ..> VehicleInfo : возвращает
+    VinDecoder ..> VehicleInfo : создаёт
+    Pricing ..> PriceQuote : создаёт
+
+    Calculator ..> VinProvider : getProvider()
+    Calculator ..> Pricing : quoteAll()
+    Calculator ..> Events : emit calc:result<br/>calc:reset
+    Calculator ..> I18n : t() ошибки и подписи
+
+    MessageTransport <|.. DirectTransport : реализует
+    MessageTransport <|.. ProxyTransport : реализует
+    TelegramModule ..> MessageTransport : getTransport()
+    TelegramModule ..> CONFIG : telegram.chats
+    TelegramModule ..> LeadPayload : принимает
+    TelegramModule ..> SendResult : возвращает
+
+    FormVM ..> TelegramModule : sendLead()
+    FormVM ..> CONFIG : branches
+    FormVM ..> Events : on form:prefill
+    FormVM ..> I18n : t() валидация
+    FormVM ..> LeadPayload : создаёт
+
+    CookieBanner ..> Events : emit cookie:consent
+    Gallery ..> CONFIG : features.galleryLightbox
+    Nav ..> I18n : t() меню
+    Ui ..> Events : on i18n:changed
+
+    Main ..> I18n : init()
+    Main ..> Nav
+    Main ..> Ui
+    Main ..> Gallery
+    Main ..> CookieBanner
+    Main ..> Calculator
+    Main ..> FormVM

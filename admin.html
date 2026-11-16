@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru" data-admin>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Админка не должна попасть в поиск: это внутренний инструмент. -->
+  <meta name="robots" content="noindex, nofollow">
+  <title>Crystal · Админ-панель</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>💎</text></svg>">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin">
+
+<header class="admin-head">
+  <div class="admin-head__inner">
+    <div class="admin-head__brand">
+      <span class="admin-head__dot" aria-hidden="true"></span>
+      <div>
+        <p class="admin-head__title">Crystal · админ-панель</p>
+        <p class="admin-head__sub" data-admin-status>Проверяем хранилище…</p>
+      </div>
+    </div>
+    <div class="admin-head__actions">
+      <a class="admin-btn admin-btn--ghost" href="index.html" target="_blank" rel="noopener">Открыть сайт ↗</a>
+      <button type="button" class="admin-btn admin-btn--ghost" data-action="export-json">Скачать JSON</button>
+      <button type="button" class="admin-btn admin-btn--danger" data-action="reset">Сбросить всё</button>
+    </div>
+  </div>
+</header>
+
+<div class="admin-notice admin-notice--warn" role="note">
+  <strong>Как это работает.</strong> Правки сохраняются в браузере этого компьютера и сразу видны
+  на сайте в этом же браузере. Посетители увидят их только после того, как вы нажмёте
+  «Скачать JSON» и передадите файл разработчику — сайт статический, сервера у него нет.
+  Подробнее — в README, раздел «Админ-панель».
+</div>
+
+<div class="admin-shell">
+
+  <!-- ── Навигация ── -->
+  <nav class="admin-nav" aria-label="Разделы админки">
+    <button type="button" class="admin-nav__item is-active" data-tab="prices">Цены и услуги</button>
+    <button type="button" class="admin-nav__item" data-tab="pricelist">Прайс-лист</button>
+    <button type="button" class="admin-nav__item" data-tab="photos">Фотографии</button>
+    <button type="button" class="admin-nav__item" data-tab="branches">Филиалы</button>
+  </nav>
+
+  <main class="admin-main">
+
+    <!-- ═════════ ЦЕНЫ И УСЛУГИ ═════════ -->
+    <section class="admin-panel is-active" data-panel="prices" aria-labelledby="h-prices">
+      <div class="admin-panel__head">
+        <div>
+          <h1 class="admin-panel__title" id="h-prices">Цены и услуги</h1>
+          <p class="admin-panel__text">
+            Изменение цены меняет число в прайсе и в карточках услуг.
+            Пока режим «по запросу», на сайте вместо суммы выводится «по запросу» —
+            цифры увидят только вы здесь.
+          </p>
+        </div>
+        <div class="admin-mode">
+          <label class="admin-switch">
+            <input type="checkbox" data-price-mode>
+            <span>Показывать цены на сайте</span>
+          </label>
+          <p class="admin-hint">Выключено — «по запросу». Включайте, когда прайс согласован.</p>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table" data-services-table>
+          <thead>
+            <tr>
+              <th scope="col" class="admin-table__num">№</th>
+              <th scope="col">Услуга</th>
+              <th scope="col" class="admin-table__price">Базовая цена, ₽</th>
+              <th scope="col" class="admin-table__class">По классу</th>
+              <th scope="col" class="admin-table__actions">Действия</th>
+            </tr>
+          </thead>
+          <tbody data-services-body></tbody>
+        </table>
+      </div>
+
+      <form class="admin-add" data-add-service>
+        <h2 class="admin-subtitle">Добавить услугу</h2>
+        <div class="admin-add__grid">
+          <label class="admin-field">
+            <span class="admin-field__label">Название</span>
+            <input class="admin-input" name="name" type="text" required maxlength="80" placeholder="Например: Полировка фар">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">ID (латиницей)</span>
+            <input class="admin-input" name="id" type="text" maxlength="40" placeholder="headlight-polish" pattern="[a-z0-9-]+">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Базовая цена, ₽</span>
+            <input class="admin-input" name="price" type="number" min="0" step="100" value="10000">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Описание (для прайса)</span>
+            <input class="admin-input" name="desc" type="text" maxlength="140" placeholder="Снятие желтизны, защитный лак">
+          </label>
+          <label class="admin-field admin-field--check">
+            <input type="checkbox" name="scale" checked>
+            <span>Цена зависит от класса автомобиля</span>
+          </label>
+        </div>
+        <button class="admin-btn admin-btn--lux" type="submit">Добавить услугу</button>
+      </form>
+    </section>
+
+    <!-- ═════════ ПРАЙС-ЛИСТ ═════════ -->
+    <section class="admin-panel" data-panel="pricelist" aria-labelledby="h-pricelist" hidden>
+      <div class="admin-panel__head">
+        <div>
+          <h1 class="admin-panel__title" id="h-pricelist">Прайс-лист</h1>
+          <p class="admin-panel__text">
+            Разделы и порядок строк. Услуга, которую вы здесь не указали,
+            попадёт в прайс в конец — она не потеряется.
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-groups" data-groups></div>
+
+      <form class="admin-add" data-add-group>
+        <h2 class="admin-subtitle">Добавить раздел</h2>
+        <div class="admin-add__grid admin-add__grid--two">
+          <label class="admin-field">
+            <span class="admin-field__label">Название раздела</span>
+            <input class="admin-input" name="title" type="text" required maxlength="60" placeholder="Например: Шумоизоляция">
+          </label>
+        </div>
+        <button class="admin-btn admin-btn--lux" type="submit">Добавить раздел</button>
+      </form>
+
+      <form class="admin-add" data-pricelist-texts>
+        <h2 class="admin-subtitle">Текст под прайсом</h2>
+        <label class="admin-field">
+          <span class="admin-field__label">Язык примечания</span>
+          <select class="admin-input" name="noteLang">
+            <option value="ru">Русский</option>
+            <option value="hy">Հայերեն (армянский)</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span class="admin-field__label">Примечание</span>
+          <textarea class="admin-input admin-input--area" name="note" rows="4" maxlength="400"></textarea>
+          <small class="admin-hint">Пусто — на сайте покажется стандартная оговорка на выбранном языке.</small>
+        </label>
+        <label class="admin-field">
+          <span class="admin-field__label">Актуально на дату (пусто — «на сегодня»)</span>
+          <input class="admin-input" name="updated" type="text" maxlength="20" placeholder="10.11.2026">
+        </label>
+        <button class="admin-btn admin-btn--lux" type="submit">Сохранить текст</button>
+      </form>
+    </section>
+
+    <!-- ═════════ ФОТОГРАФИИ ═════════ -->
+    <section class="admin-panel" data-panel="photos" aria-labelledby="h-photos" hidden>
+      <div class="admin-panel__head">
+        <div>
+          <h1 class="admin-panel__title" id="h-photos">Фотографии работ</h1>
+          <p class="admin-panel__text">
+            Ссылка на фото или файл с компьютера. Файлы сохраняются в браузере
+            и подходят для проверки; для публикации нужны файлы в папке
+            <code>assets/gallery/</code> — путь впишите в поле.
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-photos" data-photos></div>
+
+      <div class="admin-add">
+        <h2 class="admin-subtitle">Добавить фотографию</h2>
+        <div class="admin-add__grid admin-add__grid--two">
+          <label class="admin-field">
+            <span class="admin-field__label">Путь или ссылка</span>
+            <input class="admin-input" type="text" data-new-photo-src placeholder="assets/gallery/photo-7.jpg">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">…или выберите файл</span>
+            <input class="admin-input" type="file" accept="image/*" data-new-photo-file>
+          </label>
+        </div>
+        <button class="admin-btn admin-btn--lux" type="button" data-action="add-photo">Добавить</button>
+      </div>
+    </section>
+
+    <!-- ═════════ ФИЛИАЛЫ ═════════ -->
+    <section class="admin-panel" data-panel="branches" aria-labelledby="h-branches" hidden>
+      <div class="admin-panel__head">
+        <div>
+          <h1 class="admin-panel__title" id="h-branches">Филиалы</h1>
+          <p class="admin-panel__text">
+            Первый филиал в списке — основной: туда уходят заявки без выбора
+            и оттуда берётся телефон в шапке и в кнопке «Позвонить».
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-branches" data-branches></div>
+
+      <form class="admin-add" data-add-branch>
+        <h2 class="admin-subtitle">Добавить филиал</h2>
+        <div class="admin-add__grid">
+          <label class="admin-field">
+            <span class="admin-field__label">Город</span>
+            <input class="admin-input" name="city" type="text" required maxlength="60" placeholder="Гюмри">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Адрес</span>
+            <input class="admin-input" name="address" type="text" maxlength="120" placeholder="ул. Ани, 12">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Телефон как показывать</span>
+            <input class="admin-input" name="phone" type="text" maxlength="40" placeholder="+374 99 000 000">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Телефон для ссылки tel:</span>
+            <input class="admin-input" name="phoneRaw" type="text" maxlength="20" placeholder="+37499000000">
+          </label>
+        </div>
+        <button class="admin-btn admin-btn--lux" type="submit">Добавить филиал</button>
+      </form>
+    </section>
+
+  </main>
+</div>
+
+<!-- Тост: короткое подтверждение действия. aria-live, чтобы скринридер
+     не молчал о сохранении. -->
+<div class="admin-toast" data-toast role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

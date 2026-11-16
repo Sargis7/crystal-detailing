@@ -1,0 +1,2691 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Crystal Detailing — основная таблица стилей.
+
+   Архитектура: один файл, фиксированный порядок @layer.
+   Слои идут от общего к частному, поэтому поздний слой всегда выигрывает
+   у раннего независимо от специфичности селекторов. Это снимает войну
+   !important и позволяет переопределять компоненты на уровне страницы.
+
+   ПОРЯДОК СЛОЁВ (менять нельзя):
+     reset → tokens → base → layout → components → sections → utilities
+     → responsive → legal
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer reset, tokens, base, layout, components, sections, utilities, responsive, legal;
+
+/* ══════════════════════════════ RESET ══════════════════════════════ */
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  * { margin: 0; padding: 0; }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+    /* Высота шапки — чтобы якорные ссылки не заезжали под неё. */
+    scroll-padding-top: 88px;
+  }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  img, svg, video { display: block; max-width: 100%; }
+  img { height: auto; }
+
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  a { color: inherit; text-decoration: none; }
+  ul, ol { list-style: none; }
+  table { border-collapse: collapse; }
+
+  [hidden] { display: none !important; }
+
+  /* Блокировка прокрутки фона, пока открыто мобильное меню или лайтбокс.
+     Без этого правила страница прокручивается под открытой панелью —
+     на телефоне это выглядит как «поехавшая» вёрстка.
+
+     overflow: hidden на body в iOS Safari не всегда достаточно, поэтому
+     добавлена и фиксация по высоте. Компенсация ширины полосы прокрутки
+     не нужна: на мобильных, где это правило и работает, полосы нет. */
+  body.no-scroll {
+    overflow: hidden;
+    height: 100%;
+    touch-action: none;
+  }
+
+  /* Уважение к системной настройке «уменьшить движение».
+     Гасим все анимации и переходы, включая декоративные свечения. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    html { scroll-behavior: auto; }
+
+    /* Видео-фон — прямая противоположность этой настройке. Скрипт его
+       вообще не загружает (см. js/hero-video.js), но правило оставлено
+       на случай, если элемент всё же окажется в DOM: постер под ним
+       выглядит так же, а лишнее движение уходит. */
+    .hero__video { display: none !important; }
+  }
+}
+
+/* ══════════════════════════════ TOKENS ══════════════════════════════ */
+@layer tokens {
+  :root {
+    /* ── Палитра: глубокий графит и металл с золотым акцентом ── */
+    --c-bg:        #0A0A0C;
+    --c-bg-alt:    #111114;
+    --c-surface:   #18181C;
+    --c-surface-2: #202026;
+    --c-line:      rgba(255, 255, 255, 0.08);
+    --c-line-2:    rgba(255, 255, 255, 0.14);
+
+    --c-text:      #F5F5F7;
+    --c-text-dim:  #A1A1AA;
+    --c-text-mute: #71717A;
+
+    --c-metal:     #C9CDD3;
+    --c-metal-dim: #8C929C;
+    --c-lux:       #C9A227;
+    --c-lux-soft:  #E3C565;
+    --c-lux-deep:  #8A6D12;
+
+    --c-ok:   #4ADE80;
+    --c-err:  #F87171;
+    --c-warn: #FBBF24;
+
+    --c-wa:  #25D366;
+    --c-tg:  #2AABEE;
+    --c-ig:  #E1306C;
+
+    /* ── Градиенты ── */
+    --grad-metal: linear-gradient(135deg, #E8EAEE 0%, #C9CDD3 38%, #8C929C 72%, #D4D8DE 100%);
+    --grad-lux:   linear-gradient(135deg, #E3C565 0%, #C9A227 45%, #8A6D12 100%);
+    --grad-veil:  linear-gradient(180deg, rgba(10,10,12,0) 0%, rgba(10,10,12,0.65) 55%, rgba(10,10,12,0.95) 100%);
+    --grad-line:  linear-gradient(90deg, transparent, var(--c-line-2) 20%, var(--c-line-2) 80%, transparent);
+
+    /* ── Стекло ── */
+    --glass-bg:     rgba(24, 24, 28, 0.62);
+    --glass-bg-2:   rgba(32, 32, 38, 0.72);
+    --glass-blur:   18px;
+    --glass-border: 1px solid rgba(255, 255, 255, 0.09);
+
+    /* ── Свечения ── */
+    --glow-lux:   0 0 0 1px rgba(201,162,39,0.25), 0 8px 40px -8px rgba(201,162,39,0.35);
+    --glow-metal: 0 10px 40px -12px rgba(201,205,211,0.28);
+    --shadow-1:   0 2px 8px rgba(0,0,0,0.35);
+    --shadow-2:   0 12px 40px -12px rgba(0,0,0,0.75);
+    --shadow-3:   0 28px 80px -24px rgba(0,0,0,0.9);
+
+    /* ── Типографика ── */
+    --font-main: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-arm:  'Noto Sans Armenian', 'Manrope', system-ui, sans-serif;
+
+    --fs-hero:  clamp(2.1rem, 6.2vw, 4.4rem);
+    --fs-h2:    clamp(1.65rem, 3.6vw, 2.7rem);
+    --fs-h3:    clamp(1.12rem, 2vw, 1.4rem);
+    --fs-body:  clamp(0.95rem, 1.15vw, 1.05rem);
+    --fs-sm:    0.875rem;
+    --fs-xs:    0.78rem;
+
+    /* ── Ритм и радиусы ── */
+    --sp-1: 0.25rem;  --sp-2: 0.5rem;   --sp-3: 0.75rem;
+    --sp-4: 1rem;     --sp-5: 1.5rem;   --sp-6: 2rem;
+    --sp-7: 3rem;     --sp-8: 4rem;
+
+    --r-sm: 8px;  --r-md: 14px;  --r-lg: 20px;  --r-xl: 28px;  --r-full: 999px;
+
+    --container: 1200px;
+    --header-h: 72px;
+
+    /* Минимальная зона нажатия: 44×44 px по рекомендациям WCAG. */
+    --tap: 44px;
+
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --dur: 260ms;
+  }
+
+  /* Армянский набирается другим шрифтом: у Manrope нет армянских глифов,
+     и системный fallback выглядит разнородно. Кегль чуть крупнее —
+     армянские строчные мельче латинских при том же размере. */
+  html[data-lang="hy"] body,
+  html[lang="hy"] body {
+    font-family: var(--font-arm);
+    font-size: 1.04em;
+  }
+
+  /* Армянские заголовки чуть выше по строке: избегаем слипания диакритики. */
+  html[data-lang="hy"] h1, html[data-lang="hy"] h2, html[data-lang="hy"] h3,
+  html[lang="hy"] h1, html[lang="hy"] h2, html[lang="hy"] h3 { line-height: 1.22; }
+}
+
+/* ══════════════════════════════ BASE ══════════════════════════════ */
+@layer base {
+  body {
+    font-family: var(--font-main);
+    font-size: var(--fs-body);
+    color: var(--c-text);
+    background: var(--c-bg);
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Фоновая текстура: очень слабые световые пятна, дающие глубину.
+     position: fixed — чтобы фон не «уезжал» при прокрутке длинной страницы. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(1100px 620px at 12% -8%, rgba(201,162,39,0.075), transparent 62%),
+      radial-gradient(900px 560px at 88% 4%, rgba(201,205,211,0.055), transparent 60%),
+      radial-gradient(760px 760px at 50% 108%, rgba(201,162,39,0.05), transparent 62%);
+  }
+
+  h1, h2, h3, h4 {
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    /* Ключевая защита вёрстки: армянские заголовки длиннее латинских,
+       поэтому заголовок никогда не задаёт ширину контейнеру. */
+    text-wrap: balance;
+  }
+
+  h1 { font-size: var(--fs-hero); }
+  h2 { font-size: var(--fs-h2); }
+  h3 { font-size: var(--fs-h3); }
+
+  p { text-wrap: pretty; }
+
+  ::selection { background: rgba(201,162,39,0.32); color: #fff; }
+
+  /* Видимый фокус: обязателен для навигации с клавиатуры.
+     :focus-visible не показывает рамку при клике мышью. */
+  :focus-visible {
+    outline: 2px solid var(--c-lux);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Плавная прокрутка с учётом высоты шапки уже задана в reset. */
+  a, button { transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease),
+                          border-color var(--dur) var(--ease), transform var(--dur) var(--ease),
+                          box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+
+  /* Полоса прокрутки в тон теме. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--c-bg-alt); }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--c-metal-dim), #4A4F57);
+    border-radius: var(--r-full);
+    border: 2px solid var(--c-bg-alt);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--c-lux); }
+
+  .link {
+    color: var(--c-lux-soft);
+    border-bottom: 1px solid rgba(201,162,39,0.4);
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .link:hover { color: var(--c-lux); border-bottom-color: var(--c-lux); }
+
+  /* Армянский текст длиннее: переносим внутри слов, а не ломаем сетку. */
+  html[data-lang="hy"] .card__text,
+  html[data-lang="hy"] .adv__text,
+  html[data-lang="hy"] .cat__text,
+  html[data-lang="hy"] .contact-card__row dd,
+  html[lang="hy"] .card__text,
+  html[lang="hy"] .adv__text,
+  html[lang="hy"] .cat__text,
+  html[lang="hy"] .contact-card__row dd { overflow-wrap: anywhere; }
+}
+
+/* ══════════════════════════════ LAYOUT ══════════════════════════════ */
+@layer layout {
+  .container {
+    width: 100%;
+    max-width: var(--container);
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 4vw, 2.5rem);
+    position: relative;
+    z-index: 1;
+  }
+
+  .section {
+    padding-block: clamp(3.5rem, 8vw, 7rem);
+    position: relative;
+  }
+
+  .section + .section { border-top: 1px solid var(--c-line); }
+
+  .section--calc { background: linear-gradient(180deg, var(--c-bg-alt), var(--c-bg)); }
+  .section--form { background: linear-gradient(180deg, var(--c-bg), var(--c-bg-alt)); }
+
+  .section__head {
+    max-width: 48rem;
+    margin-bottom: clamp(2rem, 4vw, 3.25rem);
+  }
+
+  .section__title {
+    position: relative;
+    padding-bottom: var(--sp-3);
+  }
+
+  /* Золотая черта под заголовком: тонкая, металлическая, с затуханием. */
+  .section__title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: min(120px, 40%);
+    height: 2px;
+    background: var(--grad-lux);
+    border-radius: var(--r-full);
+    box-shadow: 0 0 14px rgba(201,162,39,0.5);
+  }
+
+  .section__subtitle {
+    margin-top: var(--sp-4);
+    color: var(--c-text-dim);
+    font-size: 1.05rem;
+    max-width: 42rem;
+  }
+
+  .glass {
+    background: var(--glass-bg);
+    border: var(--glass-border);
+    border-radius: var(--r-lg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow-2);
+  }
+
+  /* Верхняя световая кромка: имитирует отражение на стекле. */
+  .glass { position: relative; }
+  .glass::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    pointer-events: none;
+  }
+}
+
+/* ══════════════════════════════ UTILITIES ══════════════════════════════ */
+@layer utilities {
+  .skip-link {
+    position: absolute;
+    top: -100px;
+    left: var(--sp-4);
+    z-index: 999;
+    padding: var(--sp-3) var(--sp-5);
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-lux);
+    border-radius: var(--r-md);
+    color: var(--c-lux-soft);
+    font-weight: 600;
+    transition: top var(--dur) var(--ease);
+  }
+  .skip-link:focus { top: var(--sp-4); }
+
+  /* Скрытие визуально, но не для скринридеров. */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .is-active { color: var(--c-lux) !important; }
+
+  .is-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+  }
+
+  body.is-locked { overflow: hidden; }
+}
+
+/* ══════════════════════════════ COMPONENTS ══════════════════════════════ */
+@layer components {
+
+  /* ─────────────────────────── КНОПКИ ─────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: var(--tap);
+    padding: var(--sp-3) var(--sp-5);
+    border-radius: var(--r-full);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    /* Кнопка не тянется за текстом: армянские подписи длиннее латинских. */
+    white-space: nowrap;
+    text-align: center;
+    border: 1px solid transparent;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn--sm { min-height: 38px; padding: var(--sp-2) var(--sp-4); font-size: 0.85rem; }
+  .btn--lg { min-height: 54px; padding: var(--sp-4) var(--sp-6); font-size: 1rem; }
+
+  /* Золотая кнопка: градиент + свечение + бегущий блик при наведении. */
+  .btn--lux {
+    background: var(--grad-lux);
+    color: #1A1405;
+    box-shadow: var(--glow-lux);
+    font-weight: 700;
+  }
+  .btn--lux::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform: skewX(-18deg);
+    transition: left 620ms var(--ease);
+  }
+  .btn--lux:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(227,197,101,0.5), 0 14px 46px -10px rgba(201,162,39,0.6); }
+  .btn--lux:hover::after { left: 130%; }
+  .btn--lux:active { transform: translateY(0); }
+
+  /* Призрачная кнопка: металлическая рамка, прозрачный фон. */
+  .btn--ghost {
+    background: rgba(255,255,255,0.03);
+    border-color: var(--c-line-2);
+    color: var(--c-text);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .btn--ghost:hover {
+    border-color: rgba(201,162,39,0.55);
+    color: var(--c-lux-soft);
+    background: rgba(201,162,39,0.07);
+    transform: translateY(-2px);
+  }
+
+  /* Контурная кнопка: для второго ряда действий на первом экране
+     («Позвонить», «Оставить заявку»). Тонкая золотая рамка без заливки —
+     заметна, но не спорит с главной золотой кнопкой расчёта по VIN.
+     Подчёркнутая рамка вместо заливки ещё и читается на телефоне, где
+     кнопки встают в столбик. */
+  .btn--outline {
+    background: transparent;
+    border-color: rgba(201,162,39,0.45);
+    color: var(--c-lux-soft);
+  }
+  .btn--outline:hover {
+    border-color: var(--c-lux);
+    color: #F3DFA0;
+    background: rgba(201,162,39,0.08);
+    transform: translateY(-2px);
+  }
+
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none !important;
+    pointer-events: none;
+  }
+
+  /* Погашенная ссылка: значение в CONFIG ещё не заполнено заказчиком.
+     main.js ставит таким ссылкам aria-disabled и href="#", но href="#"
+     сам по себе ничем не лучше пустого: клик уводил бы страницу наверх,
+     к первому экрану. pointer-events: none убирает и переход, и прыжок,
+     а cursor + приглушённый цвет показывают, что нажимать нечего.
+     Правило нужно именно для .link и .footer__link: у .btn это уже
+     сделано выше. */
+  .link[aria-disabled="true"],
+  .footer__link[aria-disabled="true"],
+  .contact-card__note a[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    text-decoration-color: transparent;
+  }
+
+  .btn__label { position: relative; z-index: 1; }
+
+  /* Спиннер загрузки внутри кнопки. */
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0,0,0,0.25);
+    border-top-color: #1A1405;
+    border-radius: 50%;
+    animation: spin 720ms linear infinite;
+  }
+  .btn--ghost .spinner { border-color: rgba(255,255,255,0.2); border-top-color: var(--c-lux); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─────────────────────────── ПОЛЯ ВВОДА ─────────────────────────── */
+  .field { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+
+  .field__label {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-text-dim);
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+
+  .field__req { color: var(--c-lux); font-weight: 700; }
+  .field__opt { color: var(--c-text-mute); font-weight: 400; font-size: var(--fs-xs); }
+
+  .field__hint {
+    font-size: var(--fs-xs);
+    color: var(--c-text-mute);
+    line-height: 1.5;
+  }
+
+  .field__error {
+    font-size: var(--fs-xs);
+    color: var(--c-err);
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-1);
+  }
+  .field__error::before {
+    content: '!';
+    flex: none;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: rgba(248,113,113,0.16);
+    border: 1px solid rgba(248,113,113,0.5);
+    color: var(--c-err);
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+  }
+
+  /* Класс вешает form.js на обёртку поля при ошибке валидации. Основной
+     сигнал для пользователя даёт [aria-invalid] на самом инпуте, а этот
+     класс нужен для подписи и для случаев, когда поле не <input> —
+     например, чекбокс согласия. */
+  .field.has-error .field__label { color: var(--c-err); }
+
+  .input {
+    width: 100%;
+    min-height: var(--tap);
+    padding: var(--sp-3) var(--sp-4);
+    background: rgba(10,10,12,0.6);
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-md);
+    color: var(--c-text);
+    font-size: 0.98rem;
+    transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background-color var(--dur) var(--ease);
+  }
+
+  .input::placeholder { color: var(--c-text-mute); opacity: 1; }
+
+  .input:hover { border-color: rgba(255,255,255,0.22); }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--c-lux);
+    background: rgba(10,10,12,0.85);
+    box-shadow: 0 0 0 3px rgba(201,162,39,0.16);
+  }
+
+  /* Поле с ошибкой: красная рамка, но фокус по-прежнему золотой. */
+  .input.is-invalid,
+  .input[aria-invalid="true"] {
+    border-color: rgba(248,113,113,0.7);
+    box-shadow: 0 0 0 3px rgba(248,113,113,0.12);
+  }
+
+  .input--vin {
+    font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Menlo, Consolas, monospace;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    font-size: 1rem;
+  }
+
+  .textarea { min-height: 96px; resize: vertical; line-height: 1.55; }
+
+  /* Select: убираем нативную стрелку и рисуем свою, в тон теме. */
+  .select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23C9A227' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--sp-4) center;
+    padding-right: var(--sp-7);
+  }
+
+  /* Выпадающий список в тёмной теме: option наследует системные цвета,
+     поэтому задаём фон явно, иначе в Windows список будет белым. */
+  .select option { background: var(--c-surface); color: var(--c-text); }
+
+  .field__control { position: relative; display: flex; align-items: center; }
+
+  /* Кнопка-подсказка «?» рядом с полем VIN. */
+  .vin-help {
+    position: absolute;
+    right: var(--sp-2);
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--c-line-2);
+    background: rgba(255,255,255,0.05);
+    color: var(--c-text-dim);
+    font-weight: 700;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vin-help:hover { border-color: var(--c-lux); color: var(--c-lux); background: rgba(201,162,39,0.1); }
+
+  /* Всплывающая подсказка о VIN. */
+  .vin-tooltip {
+    margin-top: var(--sp-2);
+    padding: var(--sp-4);
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-line-2);
+    border-left: 3px solid var(--c-lux);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-2);
+    animation: fade-slide 240ms var(--ease);
+  }
+  .vin-tooltip__title { font-weight: 700; color: var(--c-lux-soft); margin-bottom: var(--sp-1); font-size: 0.9rem; }
+  .vin-tooltip__text { font-size: var(--fs-sm); color: var(--c-text-dim); }
+
+  @keyframes fade-slide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─────────────────────────── ЧЕКБОКС ─────────────────────────── */
+  .checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    cursor: pointer;
+    font-size: var(--fs-sm);
+    color: var(--c-text-dim);
+    line-height: 1.55;
+  }
+  /* Нативный input скрыт, но остаётся в потоке фокуса. */
+  .checkbox input {
+    position: absolute;
+    opacity: 0;
+    width: 1px; height: 1px;
+    pointer-events: none;
+  }
+  .checkbox__box {
+    flex: none;
+    width: 20px; height: 20px;
+    margin-top: 1px;
+    border: 1px solid var(--c-line-2);
+    border-radius: 6px;
+    background: rgba(10,10,12,0.6);
+    position: relative;
+    transition: all var(--dur) var(--ease);
+  }
+  .checkbox__box::after {
+    content: '';
+    position: absolute;
+    left: 6px; top: 2px;
+    width: 5px; height: 10px;
+    border: solid #1A1405;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0);
+    transition: transform var(--dur) var(--ease);
+  }
+  .checkbox input:checked + .checkbox__box {
+    background: var(--grad-lux);
+    border-color: var(--c-lux);
+    box-shadow: 0 0 12px rgba(201,162,39,0.45);
+  }
+  .checkbox input:checked + .checkbox__box::after { transform: rotate(45deg) scale(1); }
+  .checkbox input:focus-visible + .checkbox__box { outline: 2px solid var(--c-lux); outline-offset: 3px; }
+  .checkbox:hover .checkbox__box { border-color: rgba(201,162,39,0.6); }
+  .checkbox__text { display: block; }
+
+  /* Ловушка для ботов: поле существует в DOM, но недостижимо для человека.
+     Используем position, а не display:none — боты проверяют display. */
+  .honeypot {
+    position: absolute !important;
+    left: -9999px !important;
+    top: auto !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  /* ─────────────────────────── СЕГМЕНТИРОВАННЫЙ ВЫБОР ─────────────────────────── */
+  .segmented {
+    display: inline-flex;
+    padding: 4px;
+    gap: 4px;
+    background: rgba(10,10,12,0.6);
+    border: 1px solid var(--c-line-2);
+    border-radius: var(--r-full);
+    flex-wrap: wrap;
+  }
+  .segmented__btn {
+    min-height: 38px;
+    padding: var(--sp-2) var(--sp-5);
+    border-radius: var(--r-full);
+    color: var(--c-text-dim);
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .segmented__btn:hover { color: var(--c-text); }
+  .segmented__btn[aria-checked="true"],
+  .segmented__btn.is-active {
+    background: var(--grad-lux);
+    color: #1A1405;
+    box-shadow: 0 4px 18px -4px rgba(201,162,39,0.6);
+  }
+
+  .fieldset { border: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+  .fieldset legend { padding: 0; margin-bottom: var(--sp-2); }
+
+  /* ─────────────────────────── БЕЙДЖИ И АЛЕРТЫ ─────────────────────────── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    padding: 4px var(--sp-3);
+    border-radius: var(--r-full);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    background: rgba(201,205,211,0.1);
+    border: 1px solid var(--c-line-2);
+    color: var(--c-metal);
+    white-space: nowrap;
+  }
+  .badge--api { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.4); color: var(--c-ok); }
+  .badge--local { background: rgba(201,205,211,0.1); border-color: var(--c-line-2); color: var(--c-metal); }
+
+  .alert {
+    padding: var(--sp-5);
+    margin-top: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .alert--error { border-left: 3px solid var(--c-err); }
+  .alert--warn  { border-left: 3px solid var(--c-warn); }
+  .alert--ok    { border-left: 3px solid var(--c-ok); }
+  .alert__title { font-weight: 700; }
+  .alert--error .alert__title { color: var(--c-err); }
+  .alert--warn .alert__title  { color: var(--c-warn); }
+  .alert--ok .alert__title    { color: var(--c-ok); }
+  .alert__text { color: var(--c-text-dim); font-size: var(--fs-sm); }
+  .alert__text:empty { display: none; }
+}
+
+/* ══════════════════════════════ SECTIONS ══════════════════════════════ */
+@layer sections {
+
+  /* ─────────────────────────── ШАПКА ─────────────────────────── */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,12,0.72);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-bottom: 1px solid transparent;
+    transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+
+  /* Класс добавляет nav.js после прокрутки: шапка «проявляется». */
+  .site-header.is-scrolled {
+    background: rgba(10,10,12,0.92);
+    border-bottom-color: var(--c-line);
+    box-shadow: 0 8px 32px -12px rgba(0,0,0,0.9);
+  }
+
+  .header__inner {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.75rem, 2vw, 2rem);
+    min-height: var(--header-h);
+    /* flex-wrap допускает перенос действий на вторую строку вместо
+       выдавливания логотипа за пределы экрана на узких ширинах. */
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: none;
+  }
+  .brand__mark {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    flex: none;
+  }
+  .brand__text { display: flex; flex-direction: column; line-height: 1.15; }
+  .brand__name {
+    font-weight: 800;
+    font-size: 1.12rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--grad-metal);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .brand__tag {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--c-lux);
+    font-weight: 600;
+  }
+
+  .nav { margin-inline-start: auto; }
+  .nav__list {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.5rem, 1.6vw, 1.6rem);
+    flex-wrap: wrap;
+  }
+  .nav__link {
+    position: relative;
+    padding: var(--sp-2) 0;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--c-text-dim);
+    white-space: nowrap;
+  }
+  .nav__link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 0;
+    height: 1px;
+    background: var(--grad-lux);
+    transition: width var(--dur) var(--ease);
+  }
+  .nav__link:hover, .nav__link.is-active { color: var(--c-text); }
+  .nav__link:hover::after, .nav__link.is-active::after { width: 100%; }
+
+  .header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+  }
+
+  /* Переключатель языка: два сегмента в общей капсуле. */
+  .lang {
+    display: inline-flex;
+    padding: 3px;
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-full);
+    flex: none;
+  }
+  .lang__btn {
+    min-width: 40px;
+    min-height: 30px;
+    padding: 0 var(--sp-3);
+    border-radius: var(--r-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--c-text-mute);
+  }
+  .lang__btn:hover { color: var(--c-text); }
+  .lang__btn[aria-pressed="true"] {
+    background: var(--grad-lux);
+    color: #1A1405;
+    box-shadow: 0 3px 14px -4px rgba(201,162,39,0.65);
+  }
+
+  /* Бургер: виден только на мобильных. */
+  .burger {
+    display: none;
+    width: var(--tap);
+    height: var(--tap);
+    border-radius: var(--r-md);
+    border: 1px solid var(--c-line-2);
+    align-items: center;
+    justify-content: center;
+  }
+  .burger__box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 20px;
+  }
+  .burger__box span {
+    display: block;
+    height: 2px;
+    background: var(--c-text);
+    border-radius: 2px;
+    transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+  }
+  .burger[aria-expanded="true"] .burger__box span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  .burger[aria-expanded="true"] .burger__box span:nth-child(2) { opacity: 0; }
+  .burger[aria-expanded="true"] .burger__box span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+  /* ─────────────────────────── ГЛАВНЫЙ ЭКРАН ─────────────────────────── */
+  .hero {
+    position: relative;
+    min-height: min(92vh, 900px);
+    display: flex;
+    align-items: center;
+    padding-block: clamp(4rem, 10vw, 8rem);
+    overflow: hidden;
+  }
+
+  /* Подложка главного экрана: постерная картинка, а поверх неё — видео.
+     Слой лежит ПОД свечениями и сеткой (у них z-index: 0, этот — тоже 0,
+     но вставлен первым в DOM), поэтому декоративные пятна продолжают
+     работать поверх кадра и связывают видео с остальной вёрсткой. */
+  .hero__media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Постер: background-image ставит скрипт. Пока он это делает,
+       работает градиент-заглушка, поэтому кадр не мигает чёрным. */
+    background-color: var(--c-bg-alt);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* Затемнение поверх видео. Без него светлые полосы ламп в кадре
+     спорят с заголовком, и текст приходится читать «через» картинку.
+     Градиент, а не ровная заливка: у левого края, где стоит текст,
+     плотнее, к правому краю сходит почти в ноль — так кадр остаётся
+     виден как кадр, а не как серая плашка. */
+  .hero__media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(9,9,11,0.94) 0%, rgba(9,9,11,0.78) 45%, rgba(9,9,11,0.42) 100%),
+      linear-gradient(180deg, rgba(9,9,11,0.72) 0%, rgba(9,9,11,0.18) 30%, rgba(9,9,11,0.86) 100%);
+  }
+
+  .hero__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Видео проявляется только по классу is-playing: до первого кадра
+       оно прозрачное, иначе под текстом мелькает пустота. */
+    opacity: 0;
+    transition: opacity 900ms var(--ease);
+  }
+  .hero__media.is-playing .hero__video { opacity: 1; }
+
+  /* Свечения: два крупных цветных пятна с медленной пульсацией.
+     Размер задан в vmax, а не в пикселях: на телефоне пятно 620px
+     вылезало за вьюпорт на 460 и 542 px при ширине экрана 390.
+     Лишнее срезает overflow: hidden родителя, поэтому прокрутки не
+     возникало (scrollWidth оставался равен clientWidth — проверено
+     замером), но запас был нулевой: любая правка overflow у .hero
+     сразу дала бы горизонтальную прокрутку. vmax держит пятно внутри
+     экрана при любой ширине и заодно экономит работу размытия.
+
+     ВАЖНО про vmax: он считается от БОЛЬШЕЙ стороны вьюпорта. На
+     вытянутом экране (390x844) 92vmax = 776px, то есть min() выбирает
+     пиксельный предел 620 и vmax ничего не ограничивает. Ниже 674px
+     по большей стороне срабатывает уже vmax, и пятно садится внутрь
+     экрана. Отсюда второй ограничитель — min(..., 100vw): он режет
+     пятно по ширине на любом устройстве и снимает blur с лишней
+     площади, что заметно на слабых телефонах. */
+  .hero__glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .hero__glow--a {
+    width: min(620px, 92vmax, 110vw); height: min(620px, 92vmax, 110vw);
+    top: -220px; left: -160px;
+    background: radial-gradient(circle, rgba(201,162,39,0.24), transparent 68%);
+    animation: pulse-a 11s ease-in-out infinite;
+  }
+  .hero__glow--b {
+    width: min(540px, 82vmax, 100vw); height: min(540px, 82vmax, 100vw);
+    bottom: -240px; right: -140px;
+    background: radial-gradient(circle, rgba(201,205,211,0.16), transparent 68%);
+    animation: pulse-b 14s ease-in-out infinite;
+  }
+
+  @keyframes pulse-a {
+    0%, 100% { opacity: 0.75; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.12); }
+  }
+  @keyframes pulse-b {
+    0%, 100% { opacity: 0.6; transform: scale(1.08); }
+    50%      { opacity: 0.9; transform: scale(1); }
+  }
+
+  /* Сетка: тонкие линии, создающие «чертёжную» подложку. */
+  .hero__grid-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+    background-size: 68px 68px;
+    /* Маска гасит сетку к краям: без неё она выглядит как таблица. */
+    mask-image: radial-gradient(ellipse 80% 65% at 50% 40%, #000 20%, transparent 78%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 65% at 50% 40%, #000 20%, transparent 78%);
+  }
+
+  .hero__inner { position: relative; z-index: 1; max-width: 62rem; }
+
+  .hero__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    margin-bottom: var(--sp-5);
+    border-radius: var(--r-full);
+    background: rgba(201,162,39,0.08);
+    border: 1px solid rgba(201,162,39,0.28);
+    color: var(--c-lux-soft);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .hero__badge-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--c-lux);
+    box-shadow: 0 0 10px var(--c-lux);
+    animation: blink 2.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .hero__title {
+    /* Металлический градиент по тексту: главный визуальный акцент. */
+    background: linear-gradient(180deg, #FFFFFF 0%, #E4E6EA 42%, #A8ADB6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: var(--sp-5);
+  }
+  /* Акцентное слово внутри заголовка (из data-i18n-html) — золотое. */
+  .hero__title b, .hero__title strong {
+    background: var(--grad-lux);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-weight: 800;
+  }
+
+  .hero__subtitle {
+    font-size: clamp(1rem, 1.7vw, 1.22rem);
+    color: var(--c-text-dim);
+    max-width: 44rem;
+    margin-bottom: var(--sp-7);
+  }
+
+  .hero__actions {
+    display: flex;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  /* Второй ряд кнопок идёт вплотную к первому, поэтому большой нижний
+     отступ ему не нужен — иначе между рядами и статистикой появится
+     лишняя пустая полоса. Своя нижняя граница у него уже задана выше. */
+  .hero__actions--pair {
+    margin-top: calc(-1 * clamp(1.25rem, 2.5vw, 2.25rem));
+    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  /* Обе кнопки ряда — одной ширины и всегда в одну строку друг с другом:
+     на телефоне они делят строку пополам, а не встают столбиком, как
+     кнопки первого ряда. flex-basis 0 + flex-grow 1 даёт равные доли. */
+  .hero__actions--pair .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .hero__stats {
+    display: flex;
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    flex-wrap: wrap;
+    padding-top: var(--sp-6);
+    border-top: 1px solid var(--c-line);
+  }
+  .hero__stat { display: flex; flex-direction: column; }
+  .hero__stat-value {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: var(--grad-metal);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    line-height: 1.1;
+  }
+  .hero__stat-label {
+    font-size: var(--fs-sm);
+    color: var(--c-text-mute);
+    margin-top: var(--sp-1);
+  }
+
+  .hero__scroll {
+    position: absolute;
+    bottom: var(--sp-5);
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c-text-mute);
+  }
+  .hero__scroll-arrow {
+    width: 1px;
+    height: 34px;
+    background: linear-gradient(180deg, var(--c-lux), transparent);
+    animation: drop 2.2s ease-in-out infinite;
+  }
+  @keyframes drop {
+    0%, 100% { opacity: 0.3; transform: translateY(-6px); }
+    50%      { opacity: 1;   transform: translateY(6px); }
+  }
+}
+
+@layer sections {
+
+  /* ─────────────────────────── КАТЕГОРИИ УСЛУГ ─────────────────────────── */
+  .cats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-7);
+  }
+  .cat {
+    padding: var(--sp-5);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-md);
+    background: linear-gradient(160deg, rgba(255,255,255,0.035), rgba(255,255,255,0.008));
+  }
+  .cat__title { color: var(--c-lux-soft); font-size: 1.02rem; margin-bottom: var(--sp-1); }
+  .cat__text { font-size: var(--fs-sm); color: var(--c-text-mute); }
+
+  /* ─────────────────────────── КАРТОЧКИ УСЛУГ ─────────────────────────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+    gap: var(--sp-5);
+  }
+
+  .card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-6);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-lg);
+    background: linear-gradient(165deg, rgba(32,32,38,0.85), rgba(17,17,20,0.9));
+    overflow: hidden;
+    /* min-width: 0 критично: без него длинный армянский текст в grid
+       не даёт колонке сжаться и ломает всю сетку. */
+    min-width: 0;
+  }
+
+  /* Золотая кромка появляется при наведении. */
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 1px solid transparent;
+    background: linear-gradient(140deg, rgba(201,162,39,0.55), transparent 45%) border-box;
+    -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity var(--dur) var(--ease);
+    pointer-events: none;
+  }
+  .card:hover::after { opacity: 1; }
+
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-3);
+    border-color: rgba(201,162,39,0.22);
+  }
+
+  /* Блик, пробегающий по карточке при наведении. */
+  .card__shine {
+    position: absolute;
+    top: 0;
+    left: -60%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,0.07), transparent);
+    transform: skewX(-20deg);
+    transition: left 800ms var(--ease);
+    pointer-events: none;
+  }
+  .card:hover .card__shine { left: 130%; }
+
+  .card__icon {
+    width: 52px; height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-md);
+    background: linear-gradient(145deg, rgba(201,162,39,0.16), rgba(255,255,255,0.03));
+    border: 1px solid rgba(201,162,39,0.25);
+    color: var(--c-lux-soft);
+    margin-bottom: var(--sp-1);
+  }
+
+  .card__cat {
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c-lux);
+    font-weight: 700;
+  }
+
+  .card__title { font-size: 1.16rem; font-weight: 700; }
+  .card__text { font-size: var(--fs-sm); color: var(--c-text-dim); flex: 1; }
+
+  .card__price {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--c-line);
+    flex-wrap: wrap;
+  }
+  .card__price-from { font-size: var(--fs-sm); color: var(--c-text-mute); }
+  .card__price-value {
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    /* Градиент задаётся непрозрачным цветом: text-fill маской делает
+       строку полностью невидимой, если шрифт не загрузился или браузер
+       печатает без фонов. */
+    background: var(--grad-lux);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  .card__price-cur { font-size: 0.95rem; color: var(--c-lux); font-weight: 600; }
+  .card__hint { font-size: var(--fs-xs); color: var(--c-text-mute); }
+
+  /* ── Состояние «цена по запросу» (html[data-price-mode="on-request"]) ──
+     Фразе «Цена по запросу» не нужны ни приставка «от», ни знак рубля.
+     Скроем их здесь, а не только атрибутом hidden: правило нужно ещё
+     и до выполнения JS, чтобы в разметке не мелькнул осиротевший «₽».
+     В режиме numbers (data-price-mode="fixed") элемент возвращается
+     через сброс display — этим занимается блок ниже. */
+  html[data-price-mode="on-request"] .card--service .card__price-from,
+  html[data-price-mode="on-request"] .card--service .card__price-cur,
+  .card--service .card__price-from[hidden],
+  .card--service .card__price-cur[hidden] {
+    display: none;
+  }
+
+  /* Числовой ряд: без tabular-nums «Цена по запросу» не выравнивается
+     по сетке цифр и выглядит как случайно вставленный текст. */
+  .card__price-value--request {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  /* Режим опубликованного прайса: JS снимает hidden с приставки «от»,
+     но правило выше уже скрыло их атрибутным селектором — возвращаем. */
+  html[data-price-mode="fixed"] .card--service .card__price-from,
+  html[data-price-mode="fixed"] .card--service .card__price-cur {
+    display: revert;
+  }
+
+  .card__link {
+    align-self: flex-start;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--c-lux-soft);
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+  }
+  .card__link:hover { color: var(--c-lux); border-bottom-color: var(--c-lux); }
+  /* Стрелка, уезжающая вправо при наведении. */
+  .card__link::after { content: ' →'; display: inline-block; transition: transform var(--dur) var(--ease); }
+  .card__link:hover::after { transform: translateX(3px); }
+
+  /* ─────────────────────────── КАЛЬКУЛЯТОР ─────────────────────────── */
+  .section--calc { position: relative; overflow: hidden; }
+  .calc__glow {
+    position: absolute;
+    top: -200px; right: -120px;
+    /* Тот же ограничитель, что у свечений героя: vmax не работает на
+       вытянутых экранах, поэтому пятно дополнительно режется по ширине
+       вьюпорта. Без 110vw при экране 380px пятно шириной 620 выходило
+       за край на 120px (замерено). */
+    width: min(620px, 92vmax, 110vw); height: min(620px, 92vmax, 110vw);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,162,39,0.14), transparent 68%);
+    filter: blur(90px);
+    pointer-events: none;
+  }
+
+  .calc {
+    padding: clamp(1.5rem, 4vw, 2.75rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+  }
+
+  .calc__fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: var(--sp-5);
+    align-items: start;
+  }
+
+  .calc__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+  .calc__loading {
+    font-size: var(--fs-sm);
+    color: var(--c-lux-soft);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+  /* Пульсирующие точки «идёт расчёт». */
+  .calc__loading::after {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--c-lux);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+
+  .calc-result {
+    margin-top: var(--sp-5);
+    padding: clamp(1.5rem, 4vw, 2.5rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+    animation: fade-slide 320ms var(--ease);
+    border-color: rgba(201,162,39,0.2);
+    box-shadow: var(--shadow-3), 0 0 60px -30px rgba(201,162,39,0.4);
+  }
+
+  .calc-result__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+  .calc-result__label {
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--c-text-mute);
+    font-weight: 700;
+  }
+  .calc-result__car {
+    font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+    font-weight: 700;
+    margin-top: var(--sp-1);
+  }
+
+  .calc-result__specs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+    gap: var(--sp-4);
+    padding-block: var(--sp-5);
+    border-top: 1px solid var(--c-line);
+    border-bottom: 1px solid var(--c-line);
+  }
+  .calc-result__spec dt {
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--c-text-mute);
+    margin-bottom: var(--sp-1);
+  }
+  .calc-result__spec dd { font-weight: 600; font-size: 1.02rem; overflow-wrap: anywhere; }
+
+  .calc-result__guess {
+    font-size: var(--fs-sm);
+    color: var(--c-warn);
+    display: flex;
+    gap: var(--sp-2);
+    align-items: flex-start;
+    padding: var(--sp-3) var(--sp-4);
+    background: rgba(251,191,36,0.07);
+    border: 1px solid rgba(251,191,36,0.24);
+    border-radius: var(--r-md);
+  }
+  .calc-result__guess::before { content: 'i'; font-weight: 800; font-style: italic; flex: none; }
+
+  .calc-result__price {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    align-items: flex-start;
+  }
+  .calc-result__price-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--c-text-mute);
+    font-weight: 700;
+  }
+  .calc-result__price-value {
+    font-size: clamp(1.8rem, 4.6vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    background: var(--grad-lux);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  .calc-result__price-note { font-size: var(--fs-xs); color: var(--c-text-mute); max-width: 34rem; }
+
+  .calc-result__actions { display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+
+  .calc-manual {
+    padding: var(--sp-5);
+    background: rgba(10,10,12,0.55);
+    border: 1px dashed rgba(201,162,39,0.35);
+    border-radius: var(--r-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+  .calc-manual__title { font-weight: 700; color: var(--c-lux-soft); }
+  .calc-manual__text { font-size: var(--fs-sm); color: var(--c-text-dim); }
+  .calc-manual__row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
+  .calc-manual__row .select { flex: 1 1 200px; min-width: 0; }
+}
+
+@layer sections {
+
+  /* ─────────────────────────── ПРАЙС-ЛИСТ ───────────────────────────
+     Заменяет секцию калькулятора по VIN, пока подбор цены скрыт
+     (CONFIG.features.vinCalculator = false). Устроен как типографская
+     таблица, а не как набор карточек: цены сравнивают глазами сверху
+     вниз, поэтому важна ровная колонка и единый ритм строк. */
+  .section--pricing { position: relative; overflow: hidden; }
+  .pricing__glow {
+    position: absolute;
+    top: -180px; left: -140px;
+    /* Тот же ограничитель, что у свечений героя и калькулятора: vmax
+       не спасает на вытянутых экранах, пятно режется ещё и по ширине. */
+    width: min(560px, 92vmax, 110vw); height: min(560px, 92vmax, 110vw);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(201,162,39,0.12), transparent 68%);
+    filter: blur(90px);
+    pointer-events: none;
+  }
+
+  /* Надзаголовок: мелкая золотая строка с разрядкой — приём из
+     журнальной вёрстки, отделяет прайс от остальных секций. */
+  .pricing__eyebrow {
+    display: inline-block;
+    margin-bottom: var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c-lux);
+  }
+
+  .pricing {
+    position: relative;
+    margin-top: var(--sp-7);
+    padding: clamp(1rem, 2.6vw, 2rem);
+    border-radius: var(--r-lg);
+    /* Таблица сама по себе рельефна: у неё своя тень и своя рамка,
+       поэтому .glass на ней — только фон. */
+  }
+
+  .pricing__empty {
+    margin: 0;
+    padding: var(--sp-6);
+    text-align: center;
+    color: var(--c-text-mute);
+    font-size: var(--fs-sm);
+  }
+
+  /* ── Раздел прайса ── */
+  .price-group + .price-group {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-6);
+    /* Разделитель — градиентная линия: сплошная рамка на тёмном фоне
+       выглядит жёстко, приём уже используется в --grad-line. */
+    border-top: 1px solid transparent;
+    border-image: var(--grad-line) 1;
+  }
+
+  .price-group__title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin: 0 0 var(--sp-3);
+    font-size: var(--fs-h3);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--c-text);
+    /* Армянские заголовки длиннее на 50–60%: перенос обязателен,
+       иначе слово вылезает за карточку. */
+    overflow-wrap: anywhere;
+  }
+  /* Короткая золотая черта перед названием раздела. */
+  .price-group__title::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--grad-lux);
+  }
+
+  .price-group__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* ── Строка ──
+     grid: номер · название · цена · действие.
+     Номер узкий и постоянный, цена выровнена по правому краю и не
+     сжимается (tabular-nums), название забирает всё остальное и
+     переносится первым. */
+  .price-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-3) var(--sp-5);
+    align-items: center;
+    padding: var(--sp-4) var(--sp-3);
+    border-radius: var(--r-md);
+    transition: background var(--dur) var(--ease);
+  }
+  /* Зебра: на 10 строках без неё глаз теряет строку при чтении цены.
+     Чередование тонкое — 0.02 вместо привычных 0.05: на графите разница
+     и так заметна, а выраженный зебра-эффект спорит с золотом. */
+  .price-row:nth-child(even) { background: rgba(255, 255, 255, 0.022); }
+  .price-row:hover { background: rgba(201, 162, 39, 0.07); }
+
+  .price-row__main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    min-width: 0;
+  }
+
+  .price-row__num {
+    flex: 0 0 auto;
+    min-width: 1.6em;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--c-lux-deep);
+  }
+
+  .price-row__text { min-width: 0; }
+
+  .price-row__title {
+    margin: 0;
+    font-weight: 600;
+    font-size: var(--fs-body);
+    line-height: 1.35;
+    color: var(--c-text);
+    overflow-wrap: anywhere;
+  }
+
+  .price-row__detail {
+    margin: 4px 0 0;
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+    color: var(--c-text-mute);
+    overflow-wrap: anywhere;
+  }
+
+  .price-row__aside {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    justify-self: end;
+  }
+
+  /* ── Цена ──
+     «по запросу» — не заглушка, а рабочий режим: заказчик цен пока не
+     публикует. Поэтому текст набран золотом и с разрядкой, а не серым
+     мелким шрифтом: посетитель не должен решить, что цена не загрузилась. */
+  .price-row__value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--c-text);
+  }
+  .price-row__value--request {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--c-lux-soft);
+    /* Длинное армянское «ըստ հարցման» не должно раздвигать строку. */
+    white-space: normal;
+  }
+  .price-row__from,
+  .price-row__cur {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--c-text-mute);
+  }
+  .price-row__sum { font-size: 1.05em; }
+
+  /* ── Действие в строке ──
+     Не кнопка: 10 золотых кнопок в столбик превратили бы прайс в
+     витрину CTA. Это ссылка-подчёркивание, которая становится золотой
+     при наведении — как .card__link в карточках услуг. */
+  .price-row__cta {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--c-text-dim);
+    white-space: nowrap;
+    padding: var(--sp-1) 0;
+    border-bottom: 1px solid transparent;
+    transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .price-row__cta:hover { color: var(--c-lux); border-bottom-color: var(--c-lux); }
+
+  /* ── Подвал прайса ── */
+  .pricing__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-top: var(--sp-5);
+  }
+  .pricing__note {
+    flex: 1 1 320px;
+    margin: 0;
+    max-width: 58ch;
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+    color: var(--c-text-mute);
+  }
+  .pricing__foot-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+  }
+}
+
+@media (max-width: 720px) {
+  /* На телефоне строка разъезжается в две линии: цена и «узнать точную
+     цену» уходят под название. В одну строку они не влезают вместе с
+     названием — проверено на 380px. */
+  .price-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-4) var(--sp-3);
+  }
+  .price-row__aside {
+    justify-self: start;
+    /* price → действие, как в блоке цены карточки услуги. */
+    flex-wrap: wrap;
+  }
+  .price-row__num { min-width: 1.8em; }
+  .pricing__foot { flex-direction: column; align-items: stretch; }
+  .pricing__foot-actions .btn { flex: 1 1 auto; }
+}
+
+@layer sections {
+
+  /* ─────────────────────────── ГАЛЕРЕЯ ───────────────────────────
+     Плитки — premium-заглушки вместо фотографий: глубокий градиент,
+     внутреннее свечение, номер и подпись. Битого <img> нет намеренно:
+     он читается как ошибка вёрстки, а такая плитка — как решение. */
+  /* Сетка галереи.
+     Число колонок задано ЯВНО, а не через auto-fit. Причина: у плиток есть
+     акценты (.g-tile--wide span 2 и .g-tile--tall span 2), и «журнальный»
+     ритм держится только на предсказуемой сетке. С auto-fit и minmax(240px)
+     на широком экране выходило 4–5 колонок: шесть плиток ложились как
+     4+2, широкая уезжала во вторую строку, высокая оставляла справа пустую
+     дыру размером в две плитки. Проверено скриншотом при 1440px.
+
+     Раскладка при трёх колонках (проверено скриншотом):
+       ряд 1: 01 (1) | 02 wide (2)
+       ряд 2: 03 (1) | 04 (1) | 05 (1)
+       ряд 3: 06 tall (1 колонка × 2 строки)
+     Плитка 06 занимает ряд 3 и ряд 4 в первой колонке; рядом справа
+     остаётся место под два фото. Пока их нет — там честная пустота,
+     а не сломанная сетка. Добавление 7-й и 8-й плиток в разметку
+     закроет её без правок CSS.
+
+     grid-auto-flow: dense СОЗНАТЕЛЬНО НЕ ИСПОЛЬЗУЕТСЯ. С ним браузер
+     переставляет плитки, чтобы заделать пустоты, и порядок ломается:
+     на снимке 1440px плитка 06 уезжала в первую колонку, а 04 и 05
+     вставали после неё. Читатель видит «06» перед «04» — это хуже
+     пустоты, потому что выглядит как ошибка, а не как замысел. */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 230px;
+    grid-auto-flow: row;
+    gap: var(--sp-4);
+  }
+
+  .g-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-start;
+    gap: var(--sp-1);
+    padding: var(--sp-5);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--c-line);
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    min-width: 0;
+    isolation: isolate;
+  }
+
+  /* Акцентные плитки задают рваный ритм — сетка выглядит как вёрстка
+     журнала, а не как таблица. Работает только вместе с фиксированным
+     числом колонок выше: при auto-fit акценты рассыпались в пустоты. */
+  .g-tile--wide { grid-column: span 2; }
+  .g-tile--tall { grid-row: span 2; }
+
+  .g-tile__bg {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    transition: transform 700ms var(--ease), filter var(--dur) var(--ease);
+  }
+
+  /* Шесть разных градиентов: каждый держит свою тему. */
+  .g-tile__bg--1, .lightbox__frame .g-tile__bg[data-variant="1"] { background: linear-gradient(140deg, #1B1B22 0%, #2E2A1C 48%, #4A3D16 100%); }
+  .g-tile__bg--2, .lightbox__frame .g-tile__bg[data-variant="2"] { background: linear-gradient(140deg, #14161C 0%, #232B36 50%, #3A4652 100%); }
+  .g-tile__bg--3, .lightbox__frame .g-tile__bg[data-variant="3"] { background: linear-gradient(140deg, #1E1A22 0%, #33283A 52%, #553C4E 100%); }
+  .g-tile__bg--4, .lightbox__frame .g-tile__bg[data-variant="4"] { background: linear-gradient(140deg, #181C1B 0%, #22302B 50%, #35473C 100%); }
+  .g-tile__bg--5, .lightbox__frame .g-tile__bg[data-variant="5"] { background: linear-gradient(140deg, #1A1A1E 0%, #2A2A32 50%, #43434E 100%); }
+  .g-tile__bg--6, .lightbox__frame .g-tile__bg[data-variant="6"] { background: linear-gradient(140deg, #201C18 0%, #38302A 50%, #5A4A32 100%); }
+
+  /* Реальная фотография работы, подставленная gallery.js.
+     z-index: -1 — фотография ложится над градиентом-заглушкой, но под
+     вуалью и подписями, которые образуют читаемый слой поверх снимка. */
+  .g-tile__photo {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 700ms var(--ease), filter var(--dur) var(--ease);
+  }
+  .g-tile:hover .g-tile__photo { transform: scale(1.07); }
+
+  /* Пока фотография грузится или если её нет — градиент работает как фон.
+     Когда она на месте, вуаль притемняется: подписи должны читаться
+     на любом снимке, включая светлый. */
+  .g-tile.has-photo .g-tile__veil { background: linear-gradient(180deg, rgba(10,10,12,0.1) 0%, rgba(10,10,12,0.55) 55%, rgba(10,10,12,0.88) 100%); }
+
+  /* Диагональная «ткань» + световое пятно: даёт объём плоскости. */
+  .g-tile__bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 78% 18%, rgba(255,255,255,0.14), transparent 46%),
+      repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 9px);
+  }
+
+  .g-tile__veil {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--grad-veil);
+    transition: opacity var(--dur) var(--ease);
+  }
+
+  .g-tile__num {
+    position: absolute;
+    top: var(--sp-4);
+    right: var(--sp-5);
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255,255,255,0.2);
+    letter-spacing: -0.03em;
+  }
+
+  .g-tile__label {
+    position: relative;
+    font-weight: 700;
+    font-size: 1.02rem;
+  }
+
+  .g-tile__hint {
+    position: relative;
+    font-size: var(--fs-xs);
+    color: var(--c-lux-soft);
+    max-width: 22ch;
+    opacity: 0.9;
+  }
+
+  .g-tile:hover .g-tile__bg { transform: scale(1.07); filter: brightness(1.15); }
+  .g-tile:hover { border-color: rgba(201,162,39,0.4); box-shadow: var(--shadow-3); }
+  .g-tile:hover .g-tile__veil { opacity: 0.8; }
+
+  /* Иконка «лупа» в центре при наведении: подсказка, что плитка кликабельна.
+     Пока в плитке стоит временная SVG-заглушка (data-placeholder), «лупа»
+     не показывается: она обещает увеличение снимка, а снимка ещё нет. */
+  .g-tile::after {
+    content: '⤢';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.7);
+    width: 48px; height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(201,162,39,0.9);
+    color: #1A1405;
+    font-size: 1.3rem;
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+    pointer-events: none;
+  }
+  .g-tile:hover::after, .g-tile:focus-visible::after { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .g-tile:has(.g-tile__photo[data-placeholder]):hover::after,
+  .g-tile:has(.g-tile__photo[data-placeholder]):focus-visible::after { opacity: 0; }
+
+  /* Плитка с заглушкой: SVG уже несёт свою рамку и пунктир, поэтому
+     градиент-подложка уходит — иначе по краям виден двойной кант. */
+  .g-tile.has-placeholder { border-color: transparent; }
+  .g-tile.has-placeholder .g-tile__bg { opacity: 0; }
+
+  /* ─────────────────────────── ПРЕИМУЩЕСТВА ─────────────────────────── */
+  .adv {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+    gap: var(--sp-5);
+  }
+  .adv__item {
+    position: relative;
+    padding: var(--sp-6) var(--sp-5);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-md);
+    background: linear-gradient(160deg, rgba(255,255,255,0.035), transparent);
+    min-width: 0;
+    transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  }
+  .adv__item:hover { transform: translateY(-4px); border-color: rgba(201,162,39,0.3); }
+
+  .adv__mark {
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: var(--sp-4);
+    color: var(--c-lux);
+    /* Металлический кружок за знаком: глубина без лишних элементов. */
+    width: 46px; height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-md);
+    background: linear-gradient(145deg, rgba(201,162,39,0.16), rgba(255,255,255,0.03));
+    border: 1px solid rgba(201,162,39,0.24);
+  }
+  .adv__title { font-size: 1.02rem; margin-bottom: var(--sp-2); }
+  .adv__text { font-size: var(--fs-sm); color: var(--c-text-dim); }
+
+  /* ─────────────────────────── КОНТАКТЫ ─────────────────────────── */
+  .contacts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: var(--sp-5);
+    margin-bottom: var(--sp-8);
+  }
+
+  .contact-card { padding: clamp(1.5rem, 3vw, 2rem); min-width: 0; }
+
+  /* Карточка филиала, выбранного в форме. Связь «куда уйдёт заявка → кто
+     позвонит» должна быть видна, иначе выбор региона остаётся абстракцией. */
+  .contact-card.is-active {
+    border-color: rgba(201,162,39,0.45);
+    box-shadow: 0 0 0 1px rgba(201,162,39,0.22), var(--shadow-2);
+  }
+
+  .contact-card__title {
+    font-size: 1.1rem;
+    margin-bottom: var(--sp-5);
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--c-line);
+    color: var(--c-lux-soft);
+  }
+
+  .contact-card__list { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .contact-card__row dt {
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--c-text-mute);
+    margin-bottom: var(--sp-1);
+  }
+  .contact-card__row dd {
+    font-size: 0.98rem;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+  }
+  .contact-card__note { font-size: var(--fs-xs); color: var(--c-text-mute); }
+
+  /* Кнопка копирования телефона. */
+  .copy-btn {
+    width: 30px; height: 30px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--c-line-2);
+    color: var(--c-text-mute);
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .copy-btn:hover { border-color: var(--c-lux); color: var(--c-lux); background: rgba(201,162,39,0.08); }
+  .copy-btn.is-done { border-color: var(--c-ok); color: var(--c-ok); }
+  /* Телефон филиала ещё не заполнен — копировать нечего. */
+  .copy-btn[aria-disabled="true"] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* ─────────────────────────── СОЦСЕТИ ─────────────────────────── */
+  .social { text-align: center; }
+  .social__title { font-size: 1.25rem; margin-bottom: var(--sp-2); }
+  .social__subtitle { color: var(--c-text-dim); font-size: var(--fs-sm); margin-bottom: var(--sp-6); }
+
+  .social__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: var(--sp-4);
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  /* Крупные кнопки мессенджеров. Каждая держит цвет своей платформы,
+     но приглушённый: акцент остаётся за золотом сайта. */
+  .social-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--c-line-2);
+    background: linear-gradient(150deg, rgba(32,32,38,0.9), rgba(17,17,20,0.85));
+    min-height: 76px;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* Цветная полоса слева — маркер платформы. */
+  .social-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    transition: width var(--dur) var(--ease);
+  }
+  .social-btn:hover::before { width: 5px; }
+
+  .social-btn__icon {
+    width: 48px; height: 48px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-md);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--c-line);
+    transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
+  }
+  .social-btn:hover .social-btn__icon { transform: scale(1.08); }
+
+  .social-btn__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .social-btn__name { font-weight: 700; font-size: 1.02rem; }
+  .social-btn__hint { font-size: var(--fs-xs); color: var(--c-text-mute); }
+
+  /* Заполненная ссылка: подсказка прячется, кнопка становится цветной. */
+  .social-btn:not(.is-disabled) .social-btn__hint { display: none; }
+
+  .social-btn--wa::before { background: var(--c-wa); }
+  .social-btn--wa:hover { border-color: rgba(37,211,102,0.5); box-shadow: 0 14px 44px -14px rgba(37,211,102,0.6); }
+  .social-btn--wa:hover .social-btn__icon { background: rgba(37,211,102,0.16); color: var(--c-wa); }
+
+  .social-btn--tg::before { background: var(--c-tg); }
+  .social-btn--tg:hover { border-color: rgba(42,171,238,0.5); box-shadow: 0 14px 44px -14px rgba(42,171,238,0.6); }
+  .social-btn--tg:hover .social-btn__icon { background: rgba(42,171,238,0.16); color: var(--c-tg); }
+
+  .social-btn--ig::before { background: var(--c-ig); }
+  .social-btn--ig:hover { border-color: rgba(225,48,108,0.5); box-shadow: 0 14px 44px -14px rgba(225,48,108,0.6); }
+  .social-btn--ig:hover .social-btn__icon { background: rgba(225,48,108,0.16); color: var(--c-ig); }
+
+  /* Дополнения секций: классы-модификаторы, задающие поведение,
+     а не внешний вид, но нужные для ясности разметки. */
+  .card--service { gap: var(--sp-3); }
+
+  .field--vin .input { padding-right: var(--sp-8); }
+  .field--service { min-width: 0; }
+
+  .footer__col { min-width: 0; }
+  .footer__list--social { flex-direction: row; flex-wrap: wrap; gap: var(--sp-4); }
+
+  .lightbox__stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+}
+
+@layer sections {
+
+  /* ─────────────────────────── ФОРМА ЗАЯВКИ ─────────────────────────── */
+  .lead-form {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+    max-width: 62rem;
+    margin-inline: auto;
+  }
+
+  .form__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: var(--sp-5);
+  }
+  .field--full { grid-column: 1 / -1; }
+
+  .field--consent { margin-top: var(--sp-2); }
+
+  .form__actions {
+    display: flex;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  /* Форма на время отправки. Поля не отключаем (иначе данные выпадут из
+     полезной нагрузки), поэтому занятость показываем приглушением и
+     запретом повторного клика — саму кнопку гасит атрибут disabled. */
+  .lead-form.is-busy { pointer-events: none; }
+  .lead-form.is-busy .form__grid,
+  .lead-form.is-busy .fieldset { opacity: 0.6; }
+  .lead-form.is-busy [data-form-submit] { pointer-events: auto; }
+
+  /* Статус отправки: три состояния — успех, ошибка, не настроено. */
+  .form-status {
+    padding: var(--sp-5);
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .form-status__title { font-weight: 700; font-size: 1rem; }
+
+  .form-status--ok {
+    background: rgba(74,222,128,0.08);
+    border: 1px solid rgba(74,222,128,0.3);
+    border-left: 3px solid var(--c-ok);
+  }
+  .form-status--ok .form-status__title { color: var(--c-ok); }
+
+  .form-status--error {
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-left: 3px solid var(--c-err);
+  }
+  .form-status--error .form-status__title { color: var(--c-err); }
+
+  /* Демо-режим: заявка не ушла, потому что токен не заполнен.
+     Это не ошибка посетителя, поэтому цвет предупреждающий, а не красный. */
+  .form-status--warn {
+    background: rgba(251,191,36,0.08);
+    border: 1px solid rgba(251,191,36,0.32);
+    border-left: 3px solid var(--c-warn);
+  }
+  .form-status--warn .form-status__title { color: var(--c-warn); }
+  .form-status__text { color: var(--c-text-dim); }
+  .form-status__actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-2); }
+
+  /* ─────────────────────────── ПОДВАЛ ─────────────────────────── */
+  .site-footer {
+    border-top: 1px solid var(--c-line);
+    background: var(--c-bg-alt);
+    padding-top: clamp(2.5rem, 5vw, 4rem);
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer__inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: var(--sp-6);
+    padding-bottom: var(--sp-7);
+  }
+
+  .footer__col--brand { grid-column: span 1; }
+  .footer__brand {
+    font-weight: 800;
+    font-size: 1.2rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--grad-metal);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: var(--sp-2);
+  }
+  .footer__about { font-size: var(--fs-sm); color: var(--c-text-mute); }
+
+  .footer__title {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c-lux);
+    font-weight: 700;
+    margin-bottom: var(--sp-4);
+  }
+  .footer__title--mt { margin-top: var(--sp-5); }
+
+  .footer__list { display: flex; flex-direction: column; gap: var(--sp-3); }
+  .footer__link, .footer__text { font-size: var(--fs-sm); color: var(--c-text-dim); overflow-wrap: anywhere; }
+  .footer__link:hover { color: var(--c-lux-soft); }
+
+  .footer__bottom {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4) var(--sp-6);
+    justify-content: space-between;
+    padding-block: var(--sp-5);
+    border-top: 1px solid var(--c-line);
+  }
+  .footer__copy, .footer__note { font-size: var(--fs-xs); color: var(--c-text-mute); }
+
+  /* ─────────────────────────── БАННЕР COOKIE ─────────────────────────── */
+  .cookie-bar {
+    position: fixed;
+    left: var(--sp-4);
+    right: var(--sp-4);
+    bottom: var(--sp-4);
+    z-index: 400;
+    border-radius: var(--r-lg);
+    animation: cookie-up 420ms var(--ease);
+    /* Приподнят над плавающей кнопкой WhatsApp. */
+    max-width: 1100px;
+    margin-inline: auto;
+  }
+  @keyframes cookie-up {
+    from { opacity: 0; transform: translateY(28px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .cookie-bar__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-5);
+    padding: var(--sp-5) var(--sp-5);
+    flex-wrap: wrap;
+  }
+  .cookie-bar__text {
+    flex: 1 1 420px;
+    font-size: var(--fs-sm);
+    color: var(--c-text-dim);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1) var(--sp-3);
+  }
+  .cookie-bar__actions { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+
+  /* ─────────────────────────── ЛАЙТБОКС ─────────────────────────── */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(1rem, 4vw, 3rem);
+  }
+  .lightbox__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5,5,7,0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: fade-in 200ms var(--ease);
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .lightbox__dialog {
+    position: relative;
+    width: min(100%, 1000px);
+    z-index: 1;
+    animation: zoom-in 280ms var(--ease);
+  }
+  @keyframes zoom-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .lightbox__frame {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    border: 1px solid var(--c-line-2);
+    box-shadow: var(--shadow-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .lightbox__frame .g-tile__bg { position: absolute; inset: 0; }
+
+  /* Реальная фотография в лайтбоксе: заполняет кадр целиком, сохраняя
+     пропорции. Обрезать по краям здесь допустимо — это просмотр работы,
+     а не каталог: главное, чтобы не было искажений. */
+  .lightbox__photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .lightbox__hint {
+    position: relative;
+    padding: var(--sp-3) var(--sp-5);
+    border-radius: var(--r-full);
+    background: rgba(10,10,12,0.75);
+    border: 1px solid rgba(201,162,39,0.4);
+    color: var(--c-lux-soft);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+  }
+
+  .lightbox__caption {
+    text-align: center;
+    margin-top: var(--sp-4);
+    font-weight: 600;
+  }
+  .lightbox__counter {
+    text-align: center;
+    font-size: var(--fs-sm);
+    color: var(--c-text-mute);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lightbox__close,
+  .lightbox__nav {
+    position: absolute;
+    z-index: 2;
+    width: var(--tap);
+    height: var(--tap);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(24,24,28,0.85);
+    border: 1px solid var(--c-line-2);
+    color: var(--c-text);
+    font-size: 1.5rem;
+    line-height: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .lightbox__close:hover,
+  .lightbox__nav:hover { border-color: var(--c-lux); color: var(--c-lux); background: rgba(201,162,39,0.14); }
+
+  .lightbox__close { top: -8px; right: -8px; }
+  .lightbox__nav { top: 50%; transform: translateY(-50%); }
+  .lightbox__nav--prev { left: -8px; }
+  .lightbox__nav--next { right: -8px; }
+
+  /* ─────────────────────────── ПЛАВАЮЩИЕ КНОПКИ ─────────────────────────── */
+  .fab {
+    position: fixed;
+    right: var(--sp-5);
+    bottom: var(--sp-5);
+    z-index: 300;
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, #2BD968, #128C4A);
+    color: #fff;
+    box-shadow: 0 12px 36px -8px rgba(37,211,102,0.7);
+  }
+  .fab:hover { transform: scale(1.08); }
+
+  .to-top {
+    position: fixed;
+    right: var(--sp-5);
+    bottom: calc(var(--sp-5) + 70px);
+    z-index: 300;
+    width: var(--tap);
+    height: var(--tap);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(24,24,28,0.9);
+    border: 1px solid var(--c-line-2);
+    color: var(--c-text-dim);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: fade-in 240ms var(--ease);
+  }
+  .to-top:hover { border-color: var(--c-lux); color: var(--c-lux); }
+}
+
+/* ══════════════════════════════ RESPONSIVE ══════════════════════════════
+   Точки перелома: 1080, 900, 720, 520.
+   Правило для всех блоков: ни одна ширина не задаётся жёстко под текст.
+   Армянские подписи на 10–25 % длиннее русских, поэтому вместо фиксированных
+   px используем minmax(min(100%, Npx), 1fr) и flex-wrap — блоки переносятся,
+   а не выдавливают соседей за пределы экрана. */
+@layer responsive {
+
+  @media (max-width: 1080px) {
+    .header__phone { display: none; }
+    .calc__fields { grid-template-columns: 1fr; }
+  }
+
+  /* Планшет: навигация уезжает в выпадающую панель под шапкой. */
+  @media (max-width: 900px) {
+    :root { --header-h: 64px; }
+
+    .burger { display: inline-flex; }
+
+    .nav {
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      right: 0;
+      margin-inline-start: 0;
+      background: rgba(10,10,12,0.97);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--c-line);
+      box-shadow: var(--shadow-3);
+      /* Панель раскрывается через max-height: не нужно считать высоту
+         в JS, и анимация остаётся чисто CSS-ной. */
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 340ms var(--ease);
+    }
+    .nav.is-open { max-height: 70vh; overflow-y: auto; }
+
+    .nav__list {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: var(--sp-4) clamp(1rem, 4vw, 2.5rem) var(--sp-5);
+    }
+    .nav__link {
+      display: block;
+      padding: var(--sp-4) 0;
+      font-size: 1.05rem;
+      border-bottom: 1px solid var(--c-line);
+    }
+    .nav__link::after { display: none; }
+
+    .header__actions { margin-inline-start: auto; }
+    .header__cta { display: none; }
+
+    /* На планшете чипсы плиток выглядят лучше одной колонкой. */
+    .g-tile--wide { grid-column: span 2; }
+    .g-tile--tall { grid-row: span 1; }
+    /* Две колонки вместо трёх: при 900px три плитки в ряд дают ~270px,
+       но высокая (#6) и широкая (#2) начинают зажимать текст подписей. */
+    .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .lightbox__close { top: var(--sp-2); right: var(--sp-2); }
+    .lightbox__nav--prev { left: var(--sp-2); }
+    .lightbox__nav--next { right: var(--sp-2); }
+  }
+
+  @media (max-width: 720px) {
+    .section { padding-block: clamp(2.75rem, 9vw, 4.5rem); }
+
+    .hero { min-height: auto; padding-block: clamp(3rem, 12vw, 5rem) clamp(4rem, 14vw, 6rem); }
+    .hero__scroll { display: none; }
+    .hero__actions .btn { flex: 1 1 100%; }
+    /* Исключение для второго ряда: «Позвонить» и «Оставить заявку» должны
+       стоять рядом и на телефоне, поэтому они делят строку пополам
+       (flex: 1 1 0 вместо 100%). Шрифт чуть меньше, чтобы длинные
+       армянские подписи не выдавили текст за пределы кнопки. */
+    .hero__actions--pair { gap: var(--sp-3); }
+    .hero__actions--pair .btn {
+      flex: 1 1 0;
+      font-size: 0.9rem;
+      padding-inline: var(--sp-3);
+      white-space: normal;
+    }
+    .hero__stats { gap: var(--sp-5); }
+
+    /* Плитки выстраиваются в одну колонку — «широкая» перестаёт быть широкой. */
+    .gallery { grid-auto-rows: 200px; }
+    .g-tile--wide { grid-column: span 1; }
+
+    .social__grid { grid-template-columns: 1fr; }
+
+    .footer__inner { grid-template-columns: 1fr 1fr; }
+    .footer__col--brand { grid-column: 1 / -1; }
+
+    .cookie-bar { left: var(--sp-3); right: var(--sp-3); bottom: var(--sp-3); }
+    .cookie-bar__inner { padding: var(--sp-4); gap: var(--sp-4); }
+    .cookie-bar__actions .btn { flex: 1 1 auto; }
+
+    /* Плавающая кнопка уходит вверх, чтобы не спорить с баннером cookie. */
+    .fab { width: 52px; height: 52px; right: var(--sp-4); bottom: var(--sp-4); }
+    .to-top { right: var(--sp-4); bottom: calc(var(--sp-4) + 62px); }
+
+    .calc-result__head { flex-direction: column; }
+    .form__actions .btn { flex: 1 1 100%; }
+  }
+
+  @media (max-width: 520px) {
+    :root { --fs-hero: clamp(1.85rem, 8.5vw, 2.6rem); }
+
+    /* Одна колонка: в две плитки подпись «Заменить: assets/gallery/photo-N.jpg»
+       не помещается и переносится по слогам. Акценты снимаем — при одной
+       колонке широкая плитка span 2 вылезла бы за сетку. */
+    .gallery { grid-template-columns: minmax(0, 1fr); }
+    .g-tile--wide { grid-column: span 1; }
+
+    /* Переключатель языка в узкой шапке: короче подписи, меньше отступы. */
+    .lang__btn { min-width: 34px; padding: 0 var(--sp-2); font-size: 0.7rem; }
+    .brand__tag { display: none; }
+    .header__actions { gap: var(--sp-2); }
+
+    .footer__inner { grid-template-columns: 1fr; }
+
+    .contacts { gap: var(--sp-4); }
+    .social-btn { min-height: 68px; padding: var(--sp-3) var(--sp-4); }
+    .social-btn__icon { width: 42px; height: 42px; }
+
+    .calc, .lead-form { padding: var(--sp-5) var(--sp-4); }
+    .cards { grid-template-columns: 1fr; }
+    .gallery { grid-auto-rows: 180px; }
+
+    /* Лайтбокс занимает почти весь экран, стрелки уходят вниз. */
+    .lightbox { padding: var(--sp-3); }
+    .lightbox__nav { top: auto; bottom: -62px; transform: none; }
+    .lightbox__nav--prev { left: 0; }
+    .lightbox__nav--next { right: 0; }
+    .lightbox__caption { margin-top: var(--sp-3); }
+  }
+
+  /* Широкие экраны: hero получает больше воздуха. */
+  @media (min-width: 1600px) {
+    :root { --container: 1320px; }
+  }
+
+  /* Принудительная контрастность: убираем полупрозрачность стекла. */
+  @media (prefers-contrast: more) {
+    .glass, .card, .social-btn { background: #131316; }
+    .card__text, .adv__text, .cat__text, .section__subtitle { color: #C8C8CE; }
+    .btn--ghost { border-color: #6B7280; }
+  }
+
+  /* Печать: убираем декорации, оставляем содержание. */
+  @media print {
+    .site-header, .cookie-bar, .fab, .to-top, .hero__glow, .hero__grid-bg,
+    .hero__media, .lightbox, .social, .gallery, .burger { display: none !important; }
+    body { background: #fff; color: #000; }
+    body::before { display: none; }
+    .section { padding-block: 1rem; border: 0; }
+    .card, .glass { background: #fff; border-color: #ccc; box-shadow: none; }
+  }
+}
+
+/* ══════════════════════════════ LEGAL ══════════════════════════════
+   Стили юридических страниц: legal/*.html. Подключаются тем же файлом —
+   отдельная таблица стилей ради четырёх документов не нужна. */
+@layer legal {
+
+  .legal-page {
+    max-width: 52rem;
+    margin-inline: auto;
+    padding-block: clamp(2.5rem, 6vw, 5rem);
+  }
+
+  .legal-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-sm);
+    color: var(--c-text-dim);
+    margin-bottom: var(--sp-6);
+  }
+  .legal-page__back:hover { color: var(--c-lux-soft); }
+  .legal-page__back::before { content: '←'; }
+
+  .legal-page h1 {
+    font-size: clamp(1.6rem, 4vw, 2.3rem);
+    margin-bottom: var(--sp-4);
+    padding-bottom: var(--sp-4);
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  .legal-page h2 {
+    font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+    margin-top: var(--sp-7);
+    margin-bottom: var(--sp-4);
+    color: var(--c-lux-soft);
+  }
+
+  .legal-page h3 {
+    font-size: 1.05rem;
+    margin-top: var(--sp-5);
+    margin-bottom: var(--sp-3);
+  }
+
+  .legal-page p,
+  .legal-page li {
+    color: var(--c-text-dim);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    margin-bottom: var(--sp-3);
+    overflow-wrap: anywhere;
+  }
+
+  .legal-page ul, .legal-page ol {
+    padding-left: var(--sp-5);
+    margin-bottom: var(--sp-4);
+  }
+  .legal-page ul { list-style: disc; }
+  .legal-page ol { list-style: decimal; }
+  .legal-page li::marker { color: var(--c-lux); }
+
+  .legal-page strong { color: var(--c-text); }
+  .legal-page a { color: var(--c-lux-soft); border-bottom: 1px solid rgba(201,162,39,0.4); }
+  .legal-page a:hover { color: var(--c-lux); border-bottom-color: var(--c-lux); }
+
+  /* Мета-строка: версия документа и дата обновления. */
+  .legal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-5);
+    font-size: var(--fs-xs);
+    color: var(--c-text-mute);
+    margin-bottom: var(--sp-6);
+  }
+
+  /* Блок реквизитов оператора: definition-list в две колонки. */
+  .legal-req {
+    padding: var(--sp-5);
+    border: 1px solid var(--c-line);
+    border-left: 3px solid var(--c-lux);
+    border-radius: var(--r-md);
+    background: rgba(255,255,255,0.025);
+    margin-block: var(--sp-6);
+  }
+  .legal-req dl { display: grid; gap: var(--sp-3); }
+  .legal-req dt {
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--c-text-mute);
+  }
+  .legal-req dd { font-size: 0.95rem; color: var(--c-text); overflow-wrap: anywhere; }
+
+  /* Пояснение к незаполненному реквизиту: отдельной строкой под маркером,
+     чтобы заказчик видел и что подставлять, и каким ключом это управляется. */
+  .legal-req__note {
+    display: block;
+    margin-top: var(--sp-1);
+    font-size: var(--fs-xs);
+    color: var(--c-text-mute);
+    overflow-wrap: anywhere;
+  }
+
+  /* Незаполненное значение: заметная, но не пугающая пометка. */
+  .legal-fill {
+    display: inline-block;
+    padding: 2px var(--sp-2);
+    border-radius: var(--r-sm);
+    background: rgba(251,191,36,0.12);
+    border: 1px solid rgba(251,191,36,0.35);
+    color: var(--c-warn);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+  }
+
+  /* Предупреждение о том, что документ нельзя публиковать с заглушками. */
+  .legal-warn {
+    padding: var(--sp-5);
+    border: 1px solid rgba(251,191,36,0.35);
+    border-left: 3px solid var(--c-warn);
+    border-radius: var(--r-md);
+    background: rgba(251,191,36,0.07);
+    margin-bottom: var(--sp-6);
+  }
+  .legal-warn__title { font-weight: 700; color: var(--c-warn); margin-bottom: var(--sp-2); }
+  .legal-warn p { color: var(--c-text-dim); margin-bottom: 0; }
+
+  /* Оглавление документа. */
+  .legal-toc {
+    padding: var(--sp-5);
+    border: 1px solid var(--c-line);
+    border-radius: var(--r-md);
+    background: rgba(255,255,255,0.02);
+    margin-bottom: var(--sp-6);
+  }
+  .legal-toc__title {
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c-lux);
+    font-weight: 700;
+    margin-bottom: var(--sp-4);
+  }
+  .legal-toc ol { padding-left: var(--sp-5); margin: 0; counter-reset: toc; }
+  .legal-toc li { margin-bottom: var(--sp-2); font-size: var(--fs-sm); }
+  .legal-toc a { border-bottom: 0; }
+  .legal-toc a:hover { border-bottom: 1px solid var(--c-lux); }
+
+  /* Простая шапка юридической страницы: только логотип и ссылка назад. */
+  .legal-header {
+    border-bottom: 1px solid var(--c-line);
+    padding-block: var(--sp-4);
+    background: rgba(10,10,12,0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .legal-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+  }
+}

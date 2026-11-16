@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru" data-lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A0C">
+<meta name="robots" content="index, follow">
+<!-- Canonical и og:url заполняются абсолютным адресом в js/legal.js из
+     CONFIG.brand.siteUrl. data-canonical-path несёт путь ЭТОЙ страницы
+     внутри сайта — атрибут нужен, потому что legal.js загружается из
+     подкаталога и не может вывести путь из location.pathname надёжно. -->
+<link rel="canonical" href="./" data-canonical-path="legal/privacy-am.html">
+<meta property="og:url" content="">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Crystal Detailing">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:locale:alternate" content="hy_AM">
+<meta property="og:title" data-i18n-content="legal.pageTitlePrivacyAm" content="">
+<meta name="twitter:card" content="summary">
+<meta name="format-detection" content="telephone=no">
+<title data-i18n="legal.pageTitlePrivacyAm"></title>
+<meta name="description" content="Անձնական տվյալների մշակման կարգը և անվտանգության ապահովման միջոցները։ Խմբագրություն Հայաստանի Հանրապետության համար։">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+Armenian:wght@400;500;600;700&display=swap">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../css/style.css">
+
+<!-- Синхронная установка языка ДО первой отрисовки: предотвращает мигание
+     русского текста у армянского посетителя (FOUC). Дублируется в каждой
+     юридической странице намеренно — модуль загрузился бы асинхронно. -->
+<script>
+(function () {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var fromUrl = p.get('lang');
+    var stored = null;
+    try { stored = localStorage.getItem('crystal_lang'); } catch (e) { stored = null; }
+    var nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    var lang = (fromUrl === 'hy' || fromUrl === 'ru') ? fromUrl
+             : (stored === 'hy' || stored === 'ru') ? stored
+             : nav.indexOf('hy') === 0 ? 'hy' : 'ru';
+    document.documentElement.lang = lang;
+    document.documentElement.setAttribute('data-lang', lang);
+  } catch (e) { /* при любой ошибке остаётся русский по умолчанию */ }
+})();
+</script>
+</head>
+<body>
+<a class="skip-link" href="#main" data-i18n="nav.home">К содержанию</a>
+
+<!-- Простая шапка: без меню и переключателя языка — документ читается
+     сверху вниз, а лишние элементы отвлекают от текста. -->
+<header class="legal-header">
+  <div class="container legal-header__inner">
+    <a class="brand" href="../index.html" data-i18n-aria="legal.home" aria-label="Crystal">
+      <img class="brand__mark" src="../assets/logo-placeholder.svg" alt="" width="40" height="40" data-config-src="brand.logo">
+      <span class="brand__text">
+        <span class="brand__name">Crystal</span>
+        <span class="brand__tag" data-i18n="services.catDetailing">Детейлинг</span>
+      </span>
+    </a>
+    <a class="btn btn--ghost btn--sm legal-page__back" href="../index.html" data-i18n="legal.back">Вернуться на сайт</a>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <article class="legal-page">
+
+      <h1 data-i18n="legal.pageTitlePrivacyAm"></h1>
+
+      <p class="legal-meta">
+        <span><span data-i18n="legal.version"></span>: <span data-legal-version></span></span>
+        <span><span data-i18n="legal.updated"></span>: <span data-legal-updated></span></span>
+      </p>
+
+      <div class="legal-warn" data-legal-fill-notice hidden>
+        <p class="legal-warn__title" data-i18n="legal.fillNoticeTitle"></p>
+        <p data-i18n="legal.fillNoticeText"></p>
+      </div>
+
+      <p data-i18n="legal.privacyAm.intro"></p>
+
+      <section class="legal-req" data-i18n-aria="legal.operatorAm" aria-label="Անձնական տվյալների օպերատոր (Հայաստան)">
+        <p class="legal-toc__title" data-i18n="legal.operatorAm"></p>
+        <dl>
+          <dt data-i18n="legal.name"></dt>
+          <dd data-legal-requisite="legal.operatorAm.name"></dd>
+          <dt data-i18n="legal.tin"></dt>
+          <dd data-legal-requisite="legal.operatorAm.tin"></dd>
+          <dt data-i18n="legal.address"></dt>
+          <dd data-legal-requisite="legal.operatorAm.address"></dd>
+          <dt data-i18n="legal.email"></dt>
+          <dd data-legal-requisite="legal.operatorAm.email"></dd>
+        </dl>
+      </section>
+
+      <nav class="legal-toc" data-i18n-aria="legal.tocTitle" aria-label="Содержание">
+        <p class="legal-toc__title" data-i18n="legal.tocTitle"></p>
+        <ol>
+          <li><a href="#s1" data-i18n="legal.privacyAm.s1.title"></a></li>
+          <li><a href="#s2" data-i18n="legal.privacyAm.s2.title"></a></li>
+          <li><a href="#s3" data-i18n="legal.privacyAm.s3.title"></a></li>
+          <li><a href="#s4" data-i18n="legal.privacyAm.s4.title"></a></li>
+          <li><a href="#s5" data-i18n="legal.privacyAm.s5.title"></a></li>
+          <li><a href="#s6" data-i18n="legal.privacyAm.s6.title"></a></li>
+          <li><a href="#s7" data-i18n="legal.privacyAm.s7.title"></a></li>
+          <li><a href="#s8" data-i18n="legal.privacyAm.s8.title"></a></li>
+          <li><a href="#s9" data-i18n="legal.privacyAm.s9.title"></a></li>
+        </ol>
+      </nav>
+
+      <section id="s1">
+        <h2 data-i18n="legal.privacyAm.s1.title"></h2>
+        <p data-i18n="legal.privacyAm.s1.p1"></p>
+        <p data-i18n="legal.privacyAm.s1.p2"></p>
+        <p data-i18n="legal.privacyAm.s1.p3"></p>
+        <p data-i18n="legal.privacyAm.s1.p4"></p>
+      </section>
+
+      <section id="s2">
+        <h2 data-i18n="legal.privacyAm.s2.title"></h2>
+        <p data-i18n="legal.privacyAm.s2.p1"></p>
+        <p data-i18n="legal.privacyAm.s2.p2"></p>
+        <p data-i18n="legal.privacyAm.s2.p3"></p>
+        <p data-i18n="legal.privacyAm.s2.p4"></p>
+      </section>
+
+      <section id="s3">
+        <h2 data-i18n="legal.privacyAm.s3.title"></h2>
+        <p data-i18n="legal.privacyAm.s3.p1"></p>
+        <p data-i18n="legal.privacyAm.s3.p2"></p>
+        <p data-i18n="legal.privacyAm.s3.p3"></p>
+        <p data-i18n="legal.privacyAm.s3.p4"></p>
+      </section>
+
+      <section id="s4">
+        <h2 data-i18n="legal.privacyAm.s4.title"></h2>
+        <p data-i18n="legal.privacyAm.s4.p1"></p>
+        <p data-i18n="legal.privacyAm.s4.p2"></p>
+        <p data-i18n="legal.privacyAm.s4.p3"></p>
+        <p data-i18n="legal.privacyAm.s4.p4"></p>
+      </section>
+
+      <section id="s5">
+        <h2 data-i18n="legal.privacyAm.s5.title"></h2>
+        <p data-i18n="legal.privacyAm.s5.p1"></p>
+        <p data-i18n="legal.privacyAm.s5.p2"></p>
+        <p data-i18n="legal.privacyAm.s5.p3"></p>
+      </section>
+
+      <section id="s6">
+        <h2 data-i18n="legal.privacyAm.s6.title"></h2>
+        <p data-i18n="legal.privacyAm.s6.p1"></p>
+        <p data-i18n="legal.privacyAm.s6.p2"></p>
+        <p data-i18n="legal.privacyAm.s6.p3"></p>
+      </section>
+
+      <section id="s7">
+        <h2 data-i18n="legal.privacyAm.s7.title"></h2>
+        <p data-i18n="legal.privacyAm.s7.p1"></p>
+        <p data-i18n="legal.privacyAm.s7.p2"></p>
+        <p data-i18n="legal.privacyAm.s7.p3"></p>
+      </section>
+
+      <section id="s8">
+        <h2 data-i18n="legal.privacyAm.s8.title"></h2>
+        <p data-i18n="legal.privacyAm.s8.p1"></p>
+        <p data-i18n="legal.privacyAm.s8.p2"></p>
+        <p data-i18n="legal.privacyAm.s8.p3"></p>
+        <p data-i18n="legal.privacyAm.s8.p4"></p>
+      </section>
+
+      <section id="s9">
+        <h2 data-i18n="legal.privacyAm.s9.title"></h2>
+        <p data-i18n="legal.privacyAm.s9.p1"></p>
+        <p data-i18n="legal.privacyAm.s9.p2"></p>
+        <p data-i18n="legal.privacyAm.s9.p3"></p>
+      </section>
+
+      <section id="related">
+        <h2 data-i18n="legal.relatedTitle"></h2>
+        <ul>
+          <li><a href="privacy-ru.html" data-i18n="legal.relatedPrivacyRu"></a></li>
+          <li><a href="consent.html" data-i18n="legal.relatedConsent"></a></li>
+          <li><a href="cookies.html" data-i18n="legal.relatedCookies"></a></li>
+        </ul>
+        <p data-i18n="legal.termInForce"></p>
+      </section>
+
+    </article>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer__bottom">
+    <p class="footer__copy" data-i18n="footer.rights">© Crystal.</p>
+    <p class="footer__note" data-i18n="footer.disclaimer"></p>
+  </div>
+</footer>
+
+<script type="module" src="../js/legal.js"></script>
+</body>
+</html>
