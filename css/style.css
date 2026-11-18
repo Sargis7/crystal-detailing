@@ -130,7 +130,7 @@
     --font-main: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --font-arm:  'Noto Sans Armenian', 'Manrope', system-ui, sans-serif;
 
-    --fs-hero:  clamp(2.1rem, 6.2vw, 4.4rem);
+    --fs-hero:  clamp(2.1rem, 5.4vw, 3.75rem);
     --fs-h2:    clamp(1.65rem, 3.6vw, 2.7rem);
     --fs-h3:    clamp(1.12rem, 2vw, 1.4rem);
     --fs-body:  clamp(0.95rem, 1.15vw, 1.05rem);
@@ -167,6 +167,30 @@
   /* Армянские заголовки чуть выше по строке: избегаем слипания диакритики. */
   html[data-lang="hy"] h1, html[data-lang="hy"] h2, html[data-lang="hy"] h3,
   html[lang="hy"] h1, html[lang="hy"] h2, html[lang="hy"] h3 { line-height: 1.22; }
+
+  /* Компенсация для первого экрана на армянском: переопределяем переменную
+     --fs-hero, а не font-size у .hero__title. Причина та же, что и в блоке
+     max-width: 520px ниже: h1 { font-size: var(--fs-hero) }, поэтому правило
+     с прямым font-size проигрывает каскаду — переменная объявлена позже.
+     Кегль меньше, чем в русской версии: армянский заголовок в 3 строки
+     выталкивает соцкнопки за нижнюю границу экрана. */
+  html[data-lang="hy"],
+  html[lang="hy"] { --fs-hero: clamp(1.95rem, 4.6vw, 3.15rem); }
+
+  /* Тот же компромисс для первого экрана целиком: на армянском подзаголовок
+     и текст под ним длиннее, а держать соцкнопки на первом экране важнее,
+     чем воздух между блоками. */
+  html[data-lang="hy"] .hero .hero__subtitle,
+  html[lang="hy"] .hero .hero__subtitle { margin-bottom: var(--sp-3); }
+
+  html[data-lang="hy"] .hero__badge,
+  html[lang="hy"] .hero__badge { margin-bottom: var(--sp-3); }
+
+  /* Соцкнопки обязаны попасть на первый экран: это единственный способ
+     написать в мессенджер без прокрутки. На армянском строка с ними
+     длиннее, поэтому чуть поджимаем отступ сверху. */
+  html[data-lang="hy"] .hero__social,
+  html[lang="hy"] .hero__social { margin-top: var(--sp-3); }
 }
 
 /* ══════════════════════════════ BASE ══════════════════════════════ */
@@ -949,7 +973,7 @@
     min-height: min(92vh, 900px);
     display: flex;
     align-items: center;
-    padding-block: clamp(4rem, 10vw, 8rem);
+    padding-block: clamp(3rem, 7vw, 5.5rem);
     overflow: hidden;
   }
 
@@ -1103,7 +1127,7 @@
     font-size: clamp(1rem, 1.7vw, 1.22rem);
     color: var(--c-text-dim);
     max-width: 44rem;
-    margin-bottom: var(--sp-7);
+    margin-bottom: var(--sp-5);
   }
 
   .hero__actions {
@@ -1113,12 +1137,15 @@
     margin-bottom: clamp(2.5rem, 5vw, 4rem);
   }
 
-  /* Второй ряд кнопок идёт вплотную к первому, поэтому большой нижний
-     отступ ему не нужен — иначе между рядами и статистикой появится
-     лишняя пустая полоса. Своя нижняя граница у него уже задана выше. */
+  /* Второй ряд кнопок идёт вплотную к первому: отрицательный margin-top
+     его подтягивает. Нижний отступ ОБЯЗАН перекрывать этот минус — иначе
+     ряды наезжают друг на друга (проверено: при margin-bottom: 0 второй
+     ряд начинался на 36px выше конца первого). Оставляем запас 2rem:
+     это меньше прежних 64px, но всё равно сдвигает соцкнопки на первый
+     экран. */
   .hero__actions--pair {
     margin-top: calc(-1 * clamp(1.25rem, 2.5vw, 2.25rem));
-    margin-bottom: clamp(2.5rem, 5vw, 4rem);
+    margin-bottom: clamp(1.75rem, 3.5vw, 2.5rem);
   }
 
   /* Обе кнопки ряда — одной ширины и всегда в одну строку друг с другом:
@@ -1133,7 +1160,7 @@
     display: flex;
     gap: clamp(1.5rem, 4vw, 3.5rem);
     flex-wrap: wrap;
-    padding-top: var(--sp-6);
+    padding-top: var(--sp-4);
     border-top: 1px solid var(--c-line);
   }
   .hero__stat { display: flex; flex-direction: column; }
@@ -1152,6 +1179,44 @@
     color: var(--c-text-mute);
     margin-top: var(--sp-1);
   }
+
+  /* Соцсети под видео-приветствием.
+
+     Раньше мессенджеры жили только строкой в подвале — посетитель, который
+     досмотрел ролик и уже готов написать, должен был листать страницу до
+     конца. Здесь они на первом экране, сразу под цифрами.
+
+     Три кнопки в ряд, а не в колонку: на десктопе колонка съедала бы высоту
+     первого экрана и выталкивала CTA под сгиб. Размеры уменьшены относительно
+     кнопок в секции контактов (.social-btn--compact) — здесь они работают как
+     быстрые действия, а не как основной блок. */
+  .hero__social { margin-top: clamp(1rem, 2vw, 1.5rem); max-width: 32rem; }
+  .hero__social-label {
+    font-size: var(--fs-xs);
+    letter-spacing: 0.06em;
+    color: var(--c-text-mute);
+    margin-bottom: var(--sp-2);
+  }
+  .hero__social-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--sp-2);
+    max-width: 32rem;
+  }
+
+  .social-btn--compact {
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    min-height: 0;
+    border-radius: var(--r-md);
+  }
+  .social-btn--compact .social-btn__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+  }
+  .social-btn--compact .social-btn__name { font-size: var(--fs-sm); }
+  .social-btn--compact .social-btn__hint { display: none; }
 
   .hero__scroll {
     position: absolute;
@@ -2011,6 +2076,14 @@
   .social__title { font-size: 1.25rem; margin-bottom: var(--sp-2); }
   .social__subtitle { color: var(--c-text-dim); font-size: var(--fs-sm); margin-bottom: var(--sp-6); }
 
+  /* Одна строка-ссылка вместо трёх крупных кнопок: сами кнопки живут
+     под видео-приветствием, а здесь остаётся навигация к ним. */
+  .contacts__social-note {
+    margin-top: var(--sp-5);
+    text-align: center;
+    font-size: var(--fs-sm);
+  }
+
   .social__grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
@@ -2545,6 +2618,32 @@
     }
     .hero__stats { gap: var(--sp-5); }
 
+    /* На телефоне армянский первый экран самый тесный: три подписи
+       статистики и длинный заголовок выталкивают соцкнопки ровно за
+       нижнюю границу (проверено: 853px при высоте экрана 844px).
+       Поджимаем только статистику — заголовок и кнопки уже на минимуме,
+       а строка «Գրեք մեզ…» должна остаться читаемой. */
+    html[data-lang="hy"] .hero__stats,
+    html[lang="hy"] .hero__stats {
+      gap: var(--sp-4);
+      padding-top: var(--sp-3);
+    }
+
+    /* Подпись «Գրեք մեզ…» тоже поджимаем: на 390px каждая строка на счету,
+       а отступ до кнопок читается и с меньшим зазором. */
+    html[data-lang="hy"] .hero__social,
+    html[lang="hy"] .hero__social { margin-top: var(--sp-2); }
+
+    html[data-lang="hy"] .hero__social-label,
+    html[lang="hy"] .hero__social-label { margin-bottom: var(--sp-1); }
+
+    /* Три подписи в ряд на телефоне не помещаются: «Instagram» и «Telegram»
+       в двух колонках по 160 px ещё читаются, а три по 105 px — уже нет.
+       Две колонки, третья кнопка занимает всю ширину. */
+    .hero__social-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero__social-grid > :last-child { grid-column: 1 / -1; }
+  }
+
     /* Плитки выстраиваются в одну колонку — «широкая» перестаёт быть широкой. */
     .gallery { grid-auto-rows: 200px; }
     .g-tile--wide { grid-column: span 1; }
@@ -2568,6 +2667,15 @@
 
   @media (max-width: 520px) {
     :root { --fs-hero: clamp(1.85rem, 8.5vw, 2.6rem); }
+
+    /* Армянский заголовок на узком экране занимает четыре строки против
+       трёх русских — длинные слова и другой набор глифов. Уменьшаем кегль
+       переменной, а не самим правилом: --fs-hero уже переопределён выше
+       внутри этого же медиазапроса, и правило вне его проиграло бы по
+       каскаду (именно так и случилось при первой попытке). */
+    html[data-lang="hy"], html[lang="hy"] {
+      --fs-hero: clamp(1.55rem, 7vw, 2.2rem);
+    }
 
     /* Одна колонка: в две плитки подпись «Заменить: assets/gallery/photo-N.jpg»
        не помещается и переносится по слогам. Акценты снимаем — при одной

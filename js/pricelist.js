@@ -80,13 +80,18 @@ function serviceTitle(service) {
  * @returns {string} Описание или пустая строка.
  */
 function serviceDetail(service) {
-  const details = (content.pricelist && content.pricelist.details) || {};
-  if (typeof details[service.id] === 'string' && details[service.id].trim()) {
-    return details[service.id].trim();
-  }
+  // Словарь — первым, ровно как в serviceTitle(). В CONFIG.pricelist.details
+  // лежат подписи на русском, и если читать их раньше словаря, армянская
+  // версия прайса показывает русский текст: перевод существует, но до него
+  // дело не доходит. details остаётся запасным вариантом — для услуг,
+  // добавленных в админке, у которых перевода ещё нет.
   const descKey = `services.${service.id}.desc`;
   if (has(descKey)) {
     return t(descKey);
+  }
+  const details = (content.pricelist && content.pricelist.details) || {};
+  if (typeof details[service.id] === 'string' && details[service.id].trim()) {
+    return details[service.id].trim();
   }
   return service.desc || '';
 }

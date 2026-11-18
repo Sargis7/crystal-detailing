@@ -29,9 +29,23 @@ import {
   writeOverrides,
   resetOverrides,
   hasOverrides,
+  buildRemotePayload,
+  importRemote,
 } from './core/content.js';
+import {
+  readSettings as readPublishSettings,
+  writeSettings as writePublishSettings,
+  isConfigured as publishConfigured,
+  writeRemote,
+  readRemote,
+  checkAccess,
+  PublishError,
+} from './admin-github.js';
 import { $, el, setText, setAttr, on } from './core/dom.js';
-import { t, has } from './core/i18n.js';
+// i18n сюда намеренно НЕ подключён: админка — внутренний инструмент и
+// существует только на русском. Все подписи в разметке и в этом файле
+// написаны литералами, поэтому переключение языка сайта на армянский её
+// не касается и словари переводить не нужно.
 import * as store from './core/store.js';
 
 /** @type {Object} Рабочая копия конфига — из неё всё и рендерится. */
@@ -122,7 +136,266 @@ function commit(message) {
   if (message) {
     toast(message);
   }
+  // Публикация идёт ПОСЛЕ отрисовки и не блокирует её: сохранение в браузере
+  // уже состоялось, и даже если GitHub недоступен, панель остаётся рабочей.
+  // Промис намеренно не ждём — иначе каждое нажатие кнопки «+10» подвисало
+  // бы на время сетевого запроса.
+  publishNow(message);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ПУБЛИКАЦИЯ В GITHUB
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** @type {number} Счётчик изменений — по нему отсекаются устаревшие ответы. */
+let publishSeq = 0;
+
+/** @type {{sha: string, commitUrl: string, at: number}|null} Итог последнего коммита. */
+let lastPublish = null;
+
+/** @type {string|null} Текст последней ошибки публикации. */
+let publishError = null;
+
+/** @type {boolean} Идёт ли запрос прямо сейчас. */
+let publishing = false;
+
+/**
+ * Отправляет текущее состояние в репозиторий.
+ *
+ * Почему не ждём: заказчик правит цены пачкой, и каждый клик уходил бы в
+ * сеть. GitHub Contents API не умеет «склеивать» коммиты, поэтому вместо
+ * очереди используется счётчик: ответ на устаревший запрос отбрасывается,
+ * а состояние для коммита всегда берётся заново из localStorage. Итог:
+ * последний коммит гарантированно содержит последнюю правку.
+ *
+ * @param {string} [note] Человеческая причина коммита («Цены», «Филиалы»).
+ * @returns {Promise<void>}
+ */
+async function publishNow(note) {
+  const settings = readPublishSettings();
+
+  // Без токена публиковать нечем. Это штатная ситуация: панель могут
+  // открыть на чужом компьютере, и тогда правки просто лягут в браузер.
+  if (!settings.enabled || !publishConfigured(settings)) {
+    publishError = null;
+    updateStatus();
+    return;
+  }
+
+  const seq = (publishSeq += 1);
+  publishing = true;
+  publishError = null;
+  updateStatus();
+
+  const stamp = new Date();
+  const when = stamp.toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+  const message = `admin: ${note ? `${note} — ` : ''}${when}`;
+
+  try {
+    const text = buildRemotePayload(getContent());
+    const result = await writeRemote(settings, text, message);
+    if (seq !== publishSeq) {
+      // Пока запрос летел, заказчик успел нажать ещё раз — этот ответ
+      // устарел, статус показывать нельзя: он протрёт более свежий.
+      return;
+    }
+    lastPublish = { sha: result.sha, commitUrl: result.commitUrl, at: Date.now(), unchanged: result.unchanged };
+    if (!result.unchanged) {
+      toast('Опубликовано на сайте — обновится в течение минуты');
+    }
+  } catch (error) {
+    if (seq !== publishSeq) {
+      return;
+    }
+    publishError = error instanceof PublishError
+      ? error.message
+      : 'Не удалось опубликовать изменения. Подробности в консоли.';
+    console.error('[crystal] admin: публикация не удалась', error);
+    toast(publishError, 'err');
+  } finally {
+    if (seq === publishSeq) {
+      publishing = false;
+      updateStatus();
+    }
+  }
+}
+
+/**
+ * Раскрывает или сворачивает блок настроек публикации.
+ *
+ * @returns {void}
+ */
+function togglePublishPanel() {
+  const body = $('[data-publish-body]');
+  const button = $('[data-action="toggle-publish"]');
+  if (!body) {
+    return;
+  }
+  const willOpen = body.hasAttribute('hidden');
+  if (willOpen) {
+    setAttr(body, 'hidden', null);
+  } else {
+    setAttr(body, 'hidden', '');
+  }
+  if (button) {
+    setAttr(button, 'aria-expanded', willOpen ? 'true' : 'false');
+    setText(button, willOpen ? 'Свернуть' : 'Настроить');
+  }
+}
+
+/**
+ * Показывает итог проверки или загрузки под кнопками настроек.
+ *
+ * @param {string} text Текст.
+ * @param {'ok'|'err'} [tone='ok'] Тон.
+ * @returns {void}
+ */
+function publishResult(text, tone = 'ok') {
+  const node = $('[data-publish-result]');
+  if (!node) {
+    return;
+  }
+  setText(node, text);
+  setAttr(node, 'data-tone', tone);
+  setAttr(node, 'hidden', null);
+}
+
+/**
+ * Заполняет поля настроек из хранилища. Вызывается при старте и после
+ * сохранения, чтобы форма всегда показывала то, что реально применяется.
+ *
+ * @returns {void}
+ */
+function renderPublishSettings() {
+  const settings = readPublishSettings();
+  ['owner', 'repo', 'branch', 'path', 'token'].forEach((name) => {
+    const input = document.querySelector(`[data-publish-body] [name="${name}"]`);
+    if (input) {
+      input.value = settings[name] || '';
+    }
+  });
+  const enabled = document.querySelector('[data-publish-body] [name="enabled"]');
+  if (enabled) {
+    enabled.checked = settings.enabled !== false;
+  }
+}
+
+/**
+ * Читает форму настроек, проверяет и сохраняет.
+ *
+ * Токен не обрезается по краям «на всякий случай» — только trim: у
+ * fine-grained токенов нет пробелов внутри, а лишний перевод строки
+ * при копировании встречается постоянно и ломает заголовок Authorization.
+ *
+ * @returns {void}
+ */
+function savePublishSettings() {
+  const read = (name) => {
+    const input = document.querySelector(`[data-publish-body] [name="${name}"]`);
+    return input ? String(input.value || '').trim() : '';
+  };
+
+  const next = {
+    owner: read('owner') || 'Sargis7',
+    repo: read('repo') || 'crystal-detailing',
+    branch: read('branch') || 'main',
+    path: read('path') || 'data/site-overrides.json',
+    token: read('token'),
+    enabled: (() => {
+      const input = document.querySelector('[data-publish-body] [name="enabled"]');
+      return input ? input.checked : true;
+    })(),
+  };
+
+  if (!writePublishSettings(next)) {
+    publishResult('Не удалось сохранить настройки: браузер блокирует запись.', 'err');
+    return;
+  }
+  renderPublishSettings();
+  publishResult(next.token
+    ? 'Настройки сохранены. Теперь каждое изменение уходит в GitHub.'
+    : 'Настройки сохранены, но токен пуст — публикации не будет.', next.token ? 'ok' : 'err');
+  updateStatus();
+
+  // Если токен появился только сейчас, а правки уже накоплены в браузере —
+  // логично сразу их опубликовать, не заставляя искать, что бы ещё изменить.
+  if (next.token && next.enabled && hasOverrides()) {
+    publishNow('публикация накопленных правок');
+  }
+}
+
+/**
+ * Кнопка «Проверить подключение»: подтверждает токен и права на репозиторий.
+ *
+ * @returns {Promise<void>}
+ */
+async function runCheckAccess() {
+  const settings = readPublishSettings();
+  if (!publishConfigured(settings)) {
+    publishResult('Сначала впишите токен и нажмите «Сохранить настройки».', 'err');
+    return;
+  }
+  publishResult('Проверяю…');
+  try {
+    const info = await checkAccess(settings);
+    const branchNote = info.defaultBranch && info.defaultBranch !== settings.branch
+      ? ` Внимание: основная ветка репозитория — ${info.defaultBranch}, а в настройках указана ${settings.branch}.`
+      : '';
+    publishResult(
+      `Подключение работает. Токен принадлежит ${info.login}.${branchNote}`
+      + (info.canWrite ? '' : ' У токена нет права записи — коммит не пройдёт.'),
+      info.canWrite && !branchNote ? 'ok' : 'err'
+    );
+  } catch (error) {
+    publishResult(
+      error instanceof PublishError ? error.message : 'Проверка не удалась. Подробности в консоли.',
+      'err'
+    );
+  }
+}
+
+/**
+ * Кнопка «Загрузить из GitHub»: забирает опубликованный файл в этот браузер.
+ *
+ * Нужна в двух случаях: переехали на другой компьютер (правки уже на сайте,
+ * но не в localStorage) или файл правили снаружи. Настройка применяется
+ * через applyRemote изнутри content.js — вручную формат не разбираем.
+ *
+ * @returns {Promise<void>}
+ */
+async function pullFromGithub() {
+  const settings = readPublishSettings();
+  if (!publishConfigured(settings)) {
+    publishResult('Сначала впишите токен и нажмите «Сохранить настройки».', 'err');
+    return;
+  }
+  publishResult('Читаю файл из GitHub…');
+  try {
+    const remote = await readRemote(settings);
+    if (!remote.text) {
+      publishResult('В репозитории ещё нет файла правок — публиковать нечего.', 'err');
+      return;
+    }
+    const applied = importRemote(remote.text);
+    if (!applied) {
+      publishResult('Файл в репозитории повреждён — разобрать его не удалось.', 'err');
+      return;
+    }
+    content = getContent();
+    draft = readOverrides();
+    renderAll();
+    updateStatus();
+    publishResult('Данные из GitHub загружены в панель.', 'ok');
+  } catch (error) {
+    publishResult(
+      error instanceof PublishError ? error.message : 'Не удалось прочитать файл. Подробности в консоли.',
+      'err'
+    );
+  }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // СТАТУС ХРАНИЛИЩА
@@ -148,6 +421,11 @@ function storageWorks() {
 /**
  * Обновляет строку статуса под заголовком.
  *
+ * Строка честно различает три состояния: правки только в браузере (нет
+ * токена), публикация идёт, правки уже в GitHub. Заказчику важно понимать,
+ * видит ли изменение кто-то кроме него, — иначе он будет ждать «а почему
+ * на телефоне старая цена».
+ *
  * @returns {void}
  */
 function updateStatus() {
@@ -168,13 +446,49 @@ function updateStatus() {
     })
     : '';
 
-  if (hasOverrides()) {
-    setText(node, `Есть правки от ${when}. Видны только в этом браузере.`);
-    setAttr(node, 'data-tone', 'warn');
-  } else {
-    setText(node, 'Показаны заводские данные из config.js.');
-    setAttr(node, 'data-tone', null);
+  const settings = readPublishSettings();
+  const connected = settings.enabled && publishConfigured(settings);
+
+  if (publishing) {
+    setText(node, 'Сохраняю в GitHub…');
+    setAttr(node, 'data-tone', 'busy');
+    return;
   }
+
+  if (publishError) {
+    setText(node, `Не опубликовано: ${publishError}`);
+    setAttr(node, 'data-tone', 'err');
+    return;
+  }
+
+  if (!connected) {
+    if (hasOverrides()) {
+      setText(node, `Есть правки от ${when}. Видны только в этом браузере — добавьте токен GitHub, чтобы публиковать.`);
+      setAttr(node, 'data-tone', 'warn');
+    } else {
+      setText(node, 'Показаны заводские данные из config.js. Публикация не настроена.');
+      setAttr(node, 'data-tone', null);
+    }
+    return;
+  }
+
+  if (lastPublish) {
+    const at = new Date(lastPublish.at).toLocaleString('ru-RU', {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+    if (lastPublish.unchanged) {
+      setText(node, 'Опубликовано в GitHub — изменений не было, новый коммит не создавался.');
+    } else {
+      setText(node, `Опубликовано в GitHub ${at}. Сайт обновится в течение минуты.`);
+    }
+    setAttr(node, 'data-tone', 'ok');
+    return;
+  }
+
+  setText(node, hasOverrides()
+    ? `Есть правки от ${when}. Публикация в GitHub подключена.`
+    : 'Показаны заводские данные из config.js. Публикация в GitHub подключена.');
+  setAttr(node, 'data-tone', hasOverrides() ? 'warn' : null);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1027,6 +1341,14 @@ function bindEvents() {
         resetAll();
       } else if (name === 'add-photo') {
         addPhoto();
+      } else if (name === 'toggle-publish') {
+        togglePublishPanel();
+      } else if (name === 'save-publish') {
+        savePublishSettings();
+      } else if (name === 'check-publish') {
+        runCheckAccess();
+      } else if (name === 'pull-publish') {
+        pullFromGithub();
       }
       return;
     }
@@ -1936,11 +2258,19 @@ function boot() {
 
   try {
     renderAll();
+    renderPublishSettings();
     updateStatus();
     bindEvents();
   } catch (error) {
     console.error('[crystal] admin: ошибка инициализации', error);
     toast('Панель запустилась не полностью — подробности в консоли', 'err');
+  }
+
+  // Пока публикация не настроена, блок настроек раскрыт: иначе заказчик
+  // правит цены, ждёт, что «должно улететь на сайт», и не находит, где
+  // включить отправку.
+  if (!publishConfigured(readPublishSettings())) {
+    togglePublishPanel();
   }
 
   // Раздел из адреса (#branches) или первый по умолчанию.

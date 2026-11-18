@@ -274,8 +274,13 @@ export default {
   'contacts.hoursNote': 'Последний заезд — в 19:00',
   'contacts.placeholderNote': 'Данные филиала уточняются. Позвоните нам, чтобы узнать адрес.',
   'contacts.placeholderNoteAm': 'Телефон и ссылка на карту филиала в Ереване уточняются.',
+  // Текст на месте незаполненных данных филиала. Значение из CONFIG ещё не
+  // задано, поэтому в разметке остаётся эта фраза — и она обязана быть
+  // переводимой, иначе армянская версия показывает русскую строку.
+  'contacts.toBeConfirmed': 'Уточняется у заказчика',
   'contacts.socialTitle': 'Мы в мессенджерах',
   'contacts.socialSubtitle': 'Напишите нам — ответим быстро.',
+  'contacts.socialBackToTop': 'Написать в WhatsApp, Telegram или Instagram',
   'contacts.notReady': 'Ссылка скоро появится',
   'contacts.ariaWrite': 'Написать в {network}',
 

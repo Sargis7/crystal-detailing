@@ -108,8 +108,81 @@ code {
 .admin-head__sub { margin: 2px 0 0; font-size: 0.78rem; color: var(--c-text-mute); }
 .admin-head__sub[data-tone="warn"] { color: var(--c-warn); }
 .admin-head__sub[data-tone="err"] { color: var(--c-err); }
+.admin-head__sub[data-tone="ok"] { color: var(--c-ok); }
+.admin-head__sub[data-tone="busy"] { color: var(--c-text); }
 
 .admin-head__actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* ─────────────────────────── ПУБЛИКАЦИЯ ─────────────────────────── */
+
+.admin-publish {
+  max-width: 1240px;
+  margin: var(--sp-3) auto 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+}
+
+.admin-publish__head {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.admin-publish__title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.admin-publish__text {
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--c-text-mute);
+}
+.admin-publish__text code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.95em;
+}
+
+.admin-publish__body {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--c-line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.admin-publish__actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.admin-publish__result {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--c-line);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+/* Скрытое состояние важнее цветов тона: [hidden] без !important
+   проигрывало бы display:-у соседних правил. */
+.admin-publish__result[hidden] { display: none !important; }
+.admin-publish__result[data-tone="ok"] { color: var(--c-ok); border-color: rgba(74, 222, 128, 0.35); }
+.admin-publish__result[data-tone="err"] { color: var(--c-err); border-color: rgba(248, 113, 113, 0.4); }
+
+.admin-publish .admin-notice { margin: var(--sp-2) 0 0; }
 
 /* ─────────────────────────── УВЕДОМЛЕНИЕ ─────────────────────────── */
 

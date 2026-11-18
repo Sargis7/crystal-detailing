@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru" data-admin>
+<!-- Админка только на русском и НЕ переключается вместе с сайтом: это
+     внутренний инструмент владельца и подрядчика, армянских подписей в нём
+     нет и не должно появиться. lang фиксирован, i18n сюда не подключается,
+     ?lang=hy здесь игнорируется намеренно. -->
+<html lang="ru" data-admin data-lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -29,11 +33,75 @@
 </header>
 
 <div class="admin-notice admin-notice--warn" role="note">
-  <strong>Как это работает.</strong> Правки сохраняются в браузере этого компьютера и сразу видны
-  на сайте в этом же браузере. Посетители увидят их только после того, как вы нажмёте
-  «Скачать JSON» и передадите файл разработчику — сайт статический, сервера у него нет.
-  Подробнее — в README, раздел «Админ-панель».
+  <strong>Как это работает.</strong> Каждое изменение сразу сохраняется в браузере и тут же
+  уходит коммитом в GitHub — посетители увидят его в течение минуты, когда пересоберётся сайт.
+  Для этого нужен токен GitHub: впишите его в блоке «Публикация» ниже. Без токена правки
+  остаются только в этом браузере.
 </div>
+
+<!-- ═════════ ПУБЛИКАЦИЯ В GITHUB ═════════ -->
+<section class="admin-publish" aria-labelledby="h-publish">
+  <div class="admin-publish__head">
+    <div>
+      <h2 class="admin-publish__title" id="h-publish">Публикация в GitHub</h2>
+      <p class="admin-publish__text">
+        Панель кладёт правки в файл <code>data/site-overrides.json</code> и делает коммит
+        в основную ветку. Сайт читает этот файл при загрузке страницы.
+      </p>
+    </div>
+    <button type="button" class="admin-btn admin-btn--ghost" data-action="toggle-publish"
+            aria-expanded="false" aria-controls="publish-body">Настроить</button>
+  </div>
+
+  <div class="admin-publish__body" id="publish-body" data-publish-body hidden>
+    <div class="admin-add__grid">
+      <label class="admin-field">
+        <span class="admin-field__label">Владелец репозитория</span>
+        <input class="admin-input" type="text" name="owner" autocomplete="off" spellcheck="false" placeholder="Sargis7">
+      </label>
+      <label class="admin-field">
+        <span class="admin-field__label">Репозиторий</span>
+        <input class="admin-input" type="text" name="repo" autocomplete="off" spellcheck="false" placeholder="crystal-detailing">
+      </label>
+      <label class="admin-field">
+        <span class="admin-field__label">Ветка</span>
+        <input class="admin-input" type="text" name="branch" autocomplete="off" spellcheck="false" placeholder="main">
+      </label>
+      <label class="admin-field">
+        <span class="admin-field__label">Путь к файлу правок</span>
+        <input class="admin-input" type="text" name="path" autocomplete="off" spellcheck="false" placeholder="data/site-overrides.json">
+      </label>
+    </div>
+
+    <label class="admin-field">
+      <span class="admin-field__label">Токен GitHub (fine-grained, доступ Contents: Read and write)</span>
+      <input class="admin-input" type="password" name="token" autocomplete="off" spellcheck="false"
+             placeholder="github_pat_…">
+      <small class="admin-hint">
+        Токен хранится только в этом браузере и в репозиторий не попадает.
+        Создать: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens.
+      </small>
+    </label>
+
+    <label class="admin-switch">
+      <input type="checkbox" name="enabled">
+      <span>Публиковать автоматически после каждого изменения</span>
+    </label>
+
+    <div class="admin-publish__actions">
+      <button type="button" class="admin-btn admin-btn--lux" data-action="save-publish">Сохранить настройки</button>
+      <button type="button" class="admin-btn admin-btn--ghost" data-action="check-publish">Проверить подключение</button>
+      <button type="button" class="admin-btn admin-btn--ghost" data-action="pull-publish">Загрузить из GitHub</button>
+    </div>
+    <p class="admin-hint admin-publish__result" data-publish-result hidden></p>
+
+    <p class="admin-notice admin-notice--warn" role="note">
+      <strong>О безопасности.</strong> Кто получил доступ к этому компьютеру или к его хранилищу
+      браузера — получил и токен. Поэтому заведите отдельный токен только на этот репозиторий,
+      поставьте срок действия и отзывайте его, если меняете устройство.
+    </p>
+  </div>
+</section>
 
 <div class="admin-shell">
 

@@ -39,6 +39,7 @@ import * as gallery from './gallery.js';
 import * as pricelist from './pricelist.js';
 import * as heroVideo from './hero-video.js';
 import { validateBaseConfig, getContent } from './core/content.js';
+import * as remote from './core/remote.js';
 import * as calculator from './calculator.js';
 import * as form from './form.js';
 import * as cookie from './cookie.js';
@@ -74,6 +75,16 @@ function applyConfigToDom() {
   // data-config-text="branches.ru.phone" → текст элемента.
   document.querySelectorAll('[data-config-text]').forEach((node) => {
     const path = node.getAttribute('data-config-text');
+    // Армянская версия адреса. Поле addressHy существует только у
+    // ереванского филиала: у Липецка российский адрес и в hy остаётся
+    // русским, поэтому отсутствие поля — норма, а не ошибка.
+    const localized = i18n.getLanguage() === 'hy' && path.endsWith('.address')
+      ? resolveConfigPath(path.replace(/\.address$/, '.addressHy'))
+      : null;
+    if (typeof localized === 'string' && localized.trim() && !isPlaceholderValue(localized)) {
+      node.textContent = localized;
+      return;
+    }
     const value = resolveConfigPath(path);
     if (typeof value === 'string' && value.trim() && !isPlaceholderValue(value)) {
       node.textContent = value;
@@ -121,10 +132,27 @@ function applyConfigToDom() {
       // чем отправить посетителя на «#» с ощущением поломки.
       node.setAttribute('href', '#');
       node.setAttribute('aria-disabled', 'true');
+      // data-placeholder-note: пока адреса нет, подпись «Как добраться»
+      // была бы обещанием, которого ссылка не выполняет. Пишем вместо неё
+      // честную пометку — на языке страницы.
+      if (node.hasAttribute('data-placeholder-note') && i18n.has('contacts.toBeConfirmed')) {
+        node.textContent = i18n.t('contacts.toBeConfirmed');
+      }
       return;
     }
     node.setAttribute('href', isPhone ? `tel:${value}` : value);
     node.removeAttribute('aria-disabled');
+  });
+
+  // Текст-заглушка на месте незаполненных данных (например, телефон
+  // ереванского филиала). Ключ берётся из словаря, поэтому фраза звучит на
+  // языке страницы, а не остаётся русской. Если перевода нет — в разметке
+  // уже лежит русский вариант, и он честно останется.
+  document.querySelectorAll('[data-i18n-fallback]').forEach((node) => {
+    const key = node.getAttribute('data-i18n-fallback');
+    if (i18n.has(key)) {
+      node.textContent = i18n.t(key);
+    }
   });
 
   // data-config-src → src у картинки (логотип, OG-изображение в разметке).
@@ -459,6 +487,17 @@ function boot() {
   // 1. Хранилище. Без него не работает ни язык, ни согласие на cookie.
   safeInit('store', () => store.init());
 
+  // 1a. Правки с сервера (data/site-overrides.json) — ДО всего остального.
+  //     Их коммитит админ-панель, и посетители должны видеть именно их,
+  //     а не базовые значения из config.js. Пока файл не прочитан,
+  //     load() асинхронный, поэтому order такой: сначала запрашиваем файл
+  //     и сразу получаем промис, затем выполняем остальные синхронные
+  //     шаги (они нужны для мгновенной отрисовки), а на самом промис
+  //     подписываемся в конце boot() — см. блок «сервер → DOM» ниже.
+  //     Конфиг мутируется ровно один раз, до того как промис разрешится,
+  //     поэтому цикл «прочитать конфиг → подписаться» не дублируется.
+  safeInit('remote content', () => remote.load(CONFIG));
+
   // 2. Язык — синхронно и до всего остального: иначе посетитель увидит
   //    русский текст и только потом армянский.
   let lang = 'ru';
@@ -512,6 +551,34 @@ function boot() {
 
   // 7. Диагностика для заказчика: что ещё нужно заполнить.
   safeInit('placeholders', reportPlaceholders);
+
+  // 8. Правки из репозитория. Файл data/site-overrides.json запрашивается
+  //    асинхронно, поэтому к моменту разрешения промиса страница уже
+  //    отрисована на базовом config.js. Когда файл приходит, пересобираем
+  //    то, что зависит от данных: цены и карточки услуг, прайс, карточки
+  //    филиалов и ссылки на мессенджеры. Язык не трогаем — i18n.init()
+  //    уже отработал, а словари от этого файла не зависят.
+  //
+  //    Модули, у которых есть своя функция отрисовки, вызываются через
+  //    safeInit: сбой одного не должен оставить страницу в полуготовом виде.
+  //    render() у прайса и renderServiceCards() у ui перерисовывают блоки
+  //    целиком из данных, поэтому повторный вызов безопасен.
+  remote.ready().then((result) => {
+    if (!result.applied.length) {
+      return;
+    }
+    safeInit('remote → DOM', applyConfigToDom);
+    // initPriceMode (а не renderServiceCards): режим цен «по запросу» →
+    // «фиксированные» меняет CSS-ветку карточек целиком, и без повторного
+    // вызова атрибут на <html> остался бы прежним — суммы уже в DOM, а
+    // стили всё ещё прячут их.
+    safeInit('remote → price mode', () => ui.initPriceMode());
+    safeInit('remote → ui', () => ui.renderServiceCards());
+    safeInit('remote → pricelist', () => pricelist.render());
+    document.dispatchEvent(new CustomEvent('crystal:remote-applied', { detail: { ...result } }));
+  }).catch((error) => {
+    console.warn('[crystal] main: правки с сервера не применились', error);
+  });
 
   // Сообщаем всем, что страница готова: к этому моменту динамические блоки
   // отрисованы, и внешним скриптам (или e2e-тестам) есть за что зацепиться.
