@@ -37,6 +37,20 @@ import * as store from './store.js';
 /** Ключ localStorage, под которым лежит дельта. */
 export const KEY_OVERRIDES = 'overrides';
 
+/**
+ * Ключ localStorage с правками текстов из админки.
+ *
+ * Живёт отдельно от дельты, а не внутри неё, потому что относится не к
+ * данным (цены, филиалы), а к словарю интерфейса: читает его движок i18n,
+ * а не content.js. Так словарь остаётся независимым от структуры конфига,
+ * а «Сбросить тексты» не задевает цены.
+ *
+ * Ключ БЕЗ префикса: store.js сам приписывает 'crystal_'. Одна и та же
+ * строка повторена в i18n.js намеренно — модуль i18n не импортирует
+ * content.js, иначе получился бы цикл зависимостей.
+ */
+export const KEY_TEXT_OVERRIDES = 'text_overrides';
+
 /** Версия формата дельты. Нужна, чтобы понимать старые файлы после обновлений. */
 export const OVERRIDES_VERSION = 1;
 
@@ -55,6 +69,41 @@ export const OVERRIDES_VERSION = 1;
  * поэтому структура здесь зеркалит config.js один в один.
  */
 export const REMOTE_FILE = 'data/site-overrides.json';
+
+/**
+ * Читает правки текстов для файла публикации.
+ *
+ * Вынесено в отдельную функцию и обёрнуто в try, потому что content.js
+ * работает и в Node (проверки в tools/), где localStorage отсутствует.
+ * Там просто вернётся пустой объект, и файл публикации соберётся без
+ * раздела texts — это законно: старый файл тоже его не содержит.
+ *
+ * @returns {{ru: Record<string,string>, hy: Record<string,string>}}
+ */
+function readTextOverridesForPublish() {
+  try {
+    const raw = store.get(KEY_TEXT_OVERRIDES, null);
+    if (!raw || typeof raw !== 'object') {
+      return { ru: {}, hy: {} };
+    }
+    /** @type {{ru: Record<string,string>, hy: Record<string,string>}} */
+    const clean = { ru: {}, hy: {} };
+    ['ru', 'hy'].forEach((lang) => {
+      const bucket = raw[lang];
+      if (bucket && typeof bucket === 'object') {
+        Object.keys(bucket).forEach((key) => {
+          if (typeof bucket[key] === 'string' && bucket[key].trim() !== '') {
+            clean[lang][key] = bucket[key];
+          }
+        });
+      }
+    });
+    return clean;
+  } catch (error) {
+    console.warn('[crystal] content: правки текстов не прочитались для публикации', error);
+    return { ru: {}, hy: {} };
+  }
+}
 
 /**
  * Собирает JSON публикации из текущего состояния данных.
@@ -119,6 +168,10 @@ export function buildRemotePayload(source) {
       telegram: social.telegram || '',
       instagram: social.instagram || '',
     },
+    // ── Тексты интерфейса, отредактированные в админке.
+    // В файл попадают только изменённые ключи, а не все 429 строк: новый
+    // перевод словаря не должен «застревать» за старым снимком в репозитории.
+    texts: readTextOverridesForPublish(),
   };
 
   return `${JSON.stringify(payload, null, 2)}\n`;
@@ -261,6 +314,30 @@ export function applyRemote(base, patch) {
     applied.push('соцсети');
   }
 
+  // ── Тексты интерфейса. Здесь только собираем их в base.texts; применять
+  // к словарю должен вызывающий — applyRemote не знает про i18n и не должен
+  // знать, иначе слой данных потянет за собой движок переводов.
+  if (patch.texts && typeof patch.texts === 'object') {
+    const texts = { ru: {}, hy: {} };
+    let count = 0;
+    ['ru', 'hy'].forEach((lang) => {
+      const bucket = patch.texts[lang];
+      if (!bucket || typeof bucket !== 'object') {
+        return;
+      }
+      Object.keys(bucket).forEach((key) => {
+        if (typeof bucket[key] === 'string' && bucket[key].trim() !== '') {
+          texts[lang][key] = bucket[key];
+          count += 1;
+        }
+      });
+    });
+    base.texts = texts;
+    if (count) {
+      applied.push(`тексты (${count})`);
+    }
+  }
+
   return { applied, skipped };
 }
 
@@ -339,6 +416,19 @@ export function importRemote(text) {
 
   if (patch.gallery && Array.isArray(patch.gallery.items)) {
     next.gallery = { items: patch.gallery.items.map((item) => ({ ...item })) };
+  }
+
+  // Правки текстов кладутся в отдельный ключ хранилища — так же, как их
+  // читает движок i18n (см. js/core/i18n.js → readTextOverrides).
+  if (patch.texts && typeof patch.texts === 'object') {
+    try {
+      store.set(KEY_TEXT_OVERRIDES, {
+        ru: (patch.texts.ru && typeof patch.texts.ru === 'object') ? patch.texts.ru : {},
+        hy: (patch.texts.hy && typeof patch.texts.hy === 'object') ? patch.texts.hy : {},
+      });
+    } catch (error) {
+      console.warn('[crystal] content: правки текстов не записались', error);
+    }
   }
 
   return writeOverrides(next);

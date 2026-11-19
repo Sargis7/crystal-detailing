@@ -39,6 +39,31 @@ let currentLang = FALLBACK_LANG;
 /** @type {Set<string>} Уже предупреждали об этих ключах — не спамить консоль. */
 const warnedKeys = new Set();
 
+/**
+ * Тексты, отредактированные владельцем через админ-панель.
+ *
+ * Зачем отдельный слой, а не правка словарей на лету. ruDict и hyDict —
+ * это ES-модули: они заморожены на момент импорта и общие для всех
+ * вкладок страницы. Записывать в них правки значило бы держать два
+ * источника истины и потерять возможность «вернуть как было».
+ * Здесь же лежит только то, что человек реально изменил, — поверх словаря.
+ *
+ * Структура: { ru: { 'hero.title': '…' }, hy: { … } }.
+ *
+ * @type {{ru: Dict, hy: Dict}}
+ */
+let textOverrides = { ru: {}, hy: {} };
+
+/**
+ * Ключ хранилища, в котором админка держит правки текстов.
+ *
+ * ВАЖНО: это ключ БЕЗ префикса. store.js сам добавляет 'crystal_', поэтому
+ * в localStorage запись окажется как crystal_text_overrides. Если написать
+ * здесь 'crystal_text_overrides', получится crystal_crystal_text_overrides —
+ * именно на этой ошибке раздел сначала «сохранял» правки в никуда.
+ */
+const KEY_TEXT_OVERRIDES = 'text_overrides';
+
 /** @type {boolean} Инициализирован ли модуль. */
 let initialized = false;
 
@@ -74,7 +99,11 @@ function interpolate(template, params = {}) {
  */
 export function t(key, params = {}) {
   const dict = DICTS[currentLang] || ruDict;
-  let value = dict[key];
+  // Правка владельца важнее словаря — но только если она непустая и
+  // относится к текущему языку. Пустая строка означает «вернуть как было»,
+  // а не «показать пустоту».
+  const edited = textOverrides[currentLang] && textOverrides[currentLang][key];
+  let value = (typeof edited === 'string' && edited !== '') ? edited : dict[key];
 
   if (value === undefined || value === '') {
     const fallback = ruDict[key];
@@ -103,8 +132,206 @@ export function t(key, params = {}) {
  * @returns {boolean} true, если ключ есть в словаре текущего языка.
  */
 export function has(key) {
+  const edited = textOverrides[currentLang] && textOverrides[currentLang][key];
+  if (typeof edited === 'string' && edited !== '') {
+    return true;
+  }
   const dict = DICTS[currentLang] || ruDict;
   return typeof dict[key] === 'string' && dict[key] !== '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ПРАВКИ ТЕКСТОВ ИЗ АДМИНКИ
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Источник текста по ключу: словарь этого языка, а не текущего.
+ *
+ * Нужен админке: ей важно показать исходный текст конкретного языка,
+ * даже если страница сейчас на другом. Иначе при редактировании
+ * армянского заказчик видел бы в поле русский текст.
+ *
+ * @param {string} lang Код языка.
+ * @param {string} key Ключ перевода.
+ * @returns {string} Исходная строка словаря ('' если ключа нет).
+ */
+export function getBaseText(lang, key) {
+  const dict = DICTS[lang] || ruDict;
+  const value = dict[key];
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * Возвращает правку владельца, если она есть.
+ *
+ * @param {string} lang Код языка.
+ * @param {string} key Ключ перевода.
+ * @returns {string} Текст правки либо '' — значит «не правили».
+ */
+export function getOverride(lang, key) {
+  const bucket = textOverrides[lang];
+  const value = bucket ? bucket[key] : '';
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * Действующий текст с учётом правки — без интерполяции параметров.
+ *
+ * @param {string} lang Код языка.
+ * @param {string} key Ключ перевода.
+ * @returns {string} Что увидит посетитель.
+ */
+export function getText(lang, key) {
+  const edited = getOverride(lang, key);
+  return edited !== '' ? edited : getBaseText(lang, key);
+}
+
+/**
+ * Все ключи словаря русского языка — он источник истины по составу.
+ * Армянский может отставать, но «нет ключа» и «ключ не переведён» —
+ * разные вещи, а список нужен общий.
+ *
+ * @returns {string[]} Отсортированные ключи.
+ */
+export function allKeys() {
+  return Object.keys(ruDict).sort();
+}
+
+/**
+ * Проверяет полноту перевода: какие ключи есть в русском, но пусты
+ * или отсутствуют в другом языке.
+ *
+ * @param {string} lang Код языка.
+ * @returns {string[]} Ключи без перевода.
+ */
+export function missingIn(lang) {
+  const dict = DICTS[lang] || {};
+  return Object.keys(ruDict).filter((key) => {
+    const value = dict[key];
+    return typeof value !== 'string' || value === '';
+  });
+}
+
+/**
+ * Применяет накопленные правки к документу.
+ *
+ * Вызывается после setLanguage и после того, как админка сохранила
+ * изменения в соседней вкладке. Отдельно от applyToDom, потому что
+ * applyToDom читает t(), а t() уже учитывает правки — повторный обход
+ * нужен лишь для тех узлов, которые могли не перерисоваться.
+ *
+ * @param {ParentNode} [root=document] Корень обхода.
+ * @returns {void}
+ */
+export function refreshTexts(root = document) {
+  applyToDom(root);
+}
+
+/**
+ * Читает правки текстов из хранилища.
+ *
+ * Формат намеренно плоский: { ru: {ключ: строка}, hy: {…} }. Никакой
+ * вложенности, потому что ключи уже содержат точки, и разбирать их
+ * на путь было бы лишним источником ошибок.
+ *
+ * Битые данные не должны ломать сайт — при любой аномалии пишем
+ * предупреждение и считаем, что правок нет.
+ *
+ * @returns {{ru: Dict, hy: Dict}} Копия правок.
+ */
+export function readTextOverrides() {
+  const raw = store.get(KEY_TEXT_OVERRIDES, null);
+  if (!raw || typeof raw !== 'object') {
+    return { ru: {}, hy: {} };
+  }
+  /** @type {{ru: Dict, hy: Dict}} */
+  const result = { ru: {}, hy: {} };
+  ['ru', 'hy'].forEach((lang) => {
+    const bucket = raw[lang];
+    if (bucket && typeof bucket === 'object') {
+      Object.keys(bucket).forEach((key) => {
+        if (typeof bucket[key] === 'string') {
+          result[lang][key] = bucket[key];
+        }
+      });
+    }
+  });
+  return result;
+}
+
+/**
+ * Записывает правки в хранилище и сразу применяет их к странице.
+ *
+ * @param {{ru: Dict, hy: Dict}} next Новые правки (заменяют старые целиком).
+ * @returns {boolean} true, если запись удалась.
+ */
+export function writeTextOverrides(next) {
+  const clean = { ru: {}, hy: {} };
+  ['ru', 'hy'].forEach((lang) => {
+    const bucket = next && next[lang];
+    if (!bucket || typeof bucket !== 'object') {
+      return;
+    }
+    Object.keys(bucket).forEach((key) => {
+      const value = bucket[key];
+      // Пустая строка в хранилище не хранится: «вернуть как было» —
+      // это отсутствие записи, а не запись с пустым значением.
+      if (typeof value === 'string' && value.trim() !== '') {
+        clean[lang][key] = value;
+      }
+    });
+  });
+  const ok = store.set(KEY_TEXT_OVERRIDES, clean);
+  if (ok) {
+    setTextOverrides(clean);
+  }
+  return ok;
+}
+
+/**
+ * Применяет правки в память и перерисовывает видимый текст.
+ *
+ * Публичная функция, потому что правки приходят из двух источников:
+ * из локального хранилища (админка на этом компьютере) и из файла
+ * публикации в репозитории (правки всех, кто работал в панели).
+ *
+ * @param {{ru?: Dict, hy?: Dict}} patch Правки.
+ * @param {Object} [options={}] Опции.
+ * @param {boolean} [options.silent=false] Не трогать DOM (для первичной
+ *   загрузки, когда разметка ещё не готова — её всё равно переведёт init()).
+ * @returns {void}
+ */
+export function setTextOverrides(patch, options = {}) {
+  const { silent = false } = options;
+  textOverrides = {
+    ru: { ...((patch && patch.ru) || {}) },
+    hy: { ...((patch && patch.hy) || {}) },
+  };
+  if (!silent && initialized) {
+    applyToDom(document);
+  }
+}
+
+/**
+ * Сбрасывает все правки текстов.
+ *
+ * @returns {void}
+ */
+export function clearTextOverrides() {
+  textOverrides = { ru: {}, hy: {} };
+  store.remove(KEY_TEXT_OVERRIDES);
+  if (initialized) {
+    applyToDom(document);
+  }
+}
+
+/**
+ * Сколько правок сделано — для статуса в админке и при «Сбросить всё».
+ *
+ * @returns {number} Общее число правок в обоих языках.
+ */
+export function countTextOverrides() {
+  return Object.keys(textOverrides.ru).length + Object.keys(textOverrides.hy).length;
 }
 
 /**
@@ -295,6 +522,17 @@ export function init() {
   currentLang = initial;
   initialized = true;
 
+  // Правки владельца читаем ДО первой отрисовки: иначе посетитель на
+  // долю секунды увидит текст из словаря, а потом он подменится. Порядок
+  // важен и для случая, когда хранилище вернуло пустоту — setTextOverrides
+  // с пустым объектом просто ничего не меняет.
+  try {
+    textOverrides = readTextOverrides();
+  } catch (error) {
+    console.warn('[crystal] i18n: правки текстов не прочитались', error);
+    textOverrides = { ru: {}, hy: {} };
+  }
+
   document.documentElement.setAttribute('lang', initial);
   document.documentElement.setAttribute('dir', 'ltr');
   applyToDom(document);
@@ -313,4 +551,27 @@ export function init() {
   return initial;
 }
 
-export default { init, t, has, setLanguage, getLanguage, getDict, applyToDom, resolveInitial, sanitizeHtml, LANGUAGES };
+export default {
+  init,
+  t,
+  has,
+  setLanguage,
+  getLanguage,
+  getDict,
+  applyToDom,
+  resolveInitial,
+  sanitizeHtml,
+  LANGUAGES,
+  // Правки текстов из админки.
+  getBaseText,
+  getOverride,
+  getText,
+  allKeys,
+  missingIn,
+  refreshTexts,
+  readTextOverrides,
+  writeTextOverrides,
+  setTextOverrides,
+  clearTextOverrides,
+  countTextOverrides,
+};

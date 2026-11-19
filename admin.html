@@ -109,6 +109,7 @@
   <nav class="admin-nav" aria-label="Разделы админки">
     <button type="button" class="admin-nav__item is-active" data-tab="prices">Цены и услуги</button>
     <button type="button" class="admin-nav__item" data-tab="pricelist">Прайс-лист</button>
+    <button type="button" class="admin-nav__item" data-tab="texts">Тексты сайта</button>
     <button type="button" class="admin-nav__item" data-tab="photos">Фотографии</button>
     <button type="button" class="admin-nav__item" data-tab="branches">Филиалы</button>
   </nav>
@@ -223,6 +224,65 @@
         </label>
         <button class="admin-btn admin-btn--lux" type="submit">Сохранить текст</button>
       </form>
+    </section>
+
+    <!-- ═════════ ТЕКСТЫ САЙТА ═════════ -->
+    <section class="admin-panel" data-panel="texts" aria-labelledby="h-texts" hidden>
+      <div class="admin-panel__head">
+        <div>
+          <h1 class="admin-panel__title" id="h-texts">Тексты сайта</h1>
+          <p class="admin-panel__text">
+            Любая надпись на сайте — заголовки, кнопки, подсказки, юридические документы.
+            Изменение сохраняется сразу и уходит коммитом в GitHub.
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-notice admin-notice--info" role="note">
+        <strong>Осторожно с фигурными скобками.</strong>
+        Символы вида <code>{name}</code>, <code>{price}</code>, <code>{n}</code> — это
+        подстановки: на их место сайт подставляет город, цену или номер. Если удалить
+        скобку или переименовать слово внутри, на сайте останется пустое место.
+        Правьте текст вокруг них, а сами скобки оставляйте как есть.
+      </div>
+
+      <div class="admin-texts__toolbar">
+        <label class="admin-field admin-field--grow">
+          <span class="admin-field__label">Поиск по ключу или тексту</span>
+          <input class="admin-input" type="search" data-texts-search
+                 placeholder="например: hero, кнопка, позвонить, գին" autocomplete="off">
+        </label>
+        <label class="admin-field">
+          <span class="admin-field__label">Язык</span>
+          <select class="admin-input" data-texts-lang>
+            <option value="ru">Русский</option>
+            <option value="hy">Հայերեն (армянский)</option>
+          </select>
+        </label>
+        <label class="admin-field">
+          <span class="admin-field__label">Раздел сайта</span>
+          <select class="admin-input" data-texts-group>
+            <option value="">Все разделы</option>
+          </select>
+        </label>
+        <label class="admin-switch admin-switch--inline">
+          <input type="checkbox" data-texts-changed>
+          <span>Только изменённые</span>
+        </label>
+      </div>
+
+      <div class="admin-texts__meta">
+        <p class="admin-hint" data-texts-stats>Загрузка списка…</p>
+        <button type="button" class="admin-btn admin-btn--ghost" data-action="clear-texts">
+          Сбросить все тексты
+        </button>
+      </div>
+
+      <div class="admin-texts" data-texts-list></div>
+
+      <p class="admin-hint admin-texts__empty" data-texts-empty hidden>
+        Ничего не найдено. Измените запрос или выключите фильтр «только изменённые».
+      </p>
     </section>
 
     <!-- ═════════ ФОТОГРАФИИ ═════════ -->

@@ -42,10 +42,12 @@ import {
   PublishError,
 } from './admin-github.js';
 import { $, el, setText, setAttr, on } from './core/dom.js';
-// i18n сюда намеренно НЕ подключён: админка — внутренний инструмент и
-// существует только на русском. Все подписи в разметке и в этом файле
-// написаны литералами, поэтому переключение языка сайта на армянский её
-// не касается и словари переводить не нужно.
+// i18n подключён НЕ для переводов админки — она остаётся русской навсегда.
+// Он нужен как хранилище словарей: раздел «Тексты сайта» читает из него
+// исходные строки обоих языков и пишет правки, которые видит сайт.
+// Разделение важное: подписи панели — литералы в этом файле, а объект
+// i18n используется как API словаря, а не как переводчик интерфейса.
+import * as i18n from './core/i18n.js';
 import * as store from './core/store.js';
 
 /** @type {Object} Рабочая копия конфига — из неё всё и рендерится. */
@@ -383,6 +385,9 @@ async function pullFromGithub() {
       publishResult('Файл в репозитории повреждён — разобрать его не удалось.', 'err');
       return;
     }
+    // Тексты importRemote кладёт в отдельный ключ хранилища; в память
+    // движка их надо перечитать явно, иначе панель покажет старые строки.
+    i18n.setTextOverrides(i18n.readTextOverrides());
     content = getContent();
     draft = readOverrides();
     renderAll();
@@ -462,8 +467,13 @@ function updateStatus() {
   }
 
   if (!connected) {
-    if (hasOverrides()) {
-      setText(node, `Есть правки от ${when}. Видны только в этом браузере — добавьте токен GitHub, чтобы публиковать.`);
+    // Правки текстов живут в отдельном ключе хранилища и в hasOverrides()
+    // не попадают, поэтому их считаем отдельно: иначе владелец поправил
+    // бы заголовок в «Текстах сайта» и увидел «данные заводские».
+    const textCount = i18n.countTextOverrides();
+    if (hasOverrides() || textCount) {
+      const textNote = textCount ? ` Текстов изменено: ${textCount}.` : '';
+      setText(node, `Есть правки от ${when}.${textNote} Видны только в этом браузере — добавьте токен GitHub, чтобы публиковать.`);
       setAttr(node, 'data-tone', 'warn');
     } else {
       setText(node, 'Показаны заводские данные из config.js. Публикация не настроена.');
@@ -513,11 +523,14 @@ function serviceName(service) {
   if (service.name) {
     return service.name;
   }
+  // Названия услуг в панели берём из русских подписей словаря и не
+  // переводим: админка существует только на русском, а i18n здесь нужен
+  // как источник текста. Обращение именно к ru, а не к текущему языку —
+  // если владелец открыл панель после армянской версии сайта, названия
+  // услуг всё равно должны быть понятны (см. getBaseText ниже).
   const key = `services.${service.id}.name`;
-  if (has(key)) {
-    return t(key);
-  }
-  return service.id;
+  const label = i18n.getBaseText('ru', key);
+  return label || service.id;
 }
 
 /**
@@ -1065,6 +1078,549 @@ function readPhotoFile(index, file) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ТЕКСТЫ САЙТА
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Подписи разделов сайта. Порядок намеренный: сначала то, что видит
+ * посетитель при заходе, потом правовые документы. Совпадает с порядком
+ * блоков на странице, чтобы искать было интуитивно.
+ *
+ * @type {Array<{id: string, label: string}>}
+ */
+const TEXT_GROUPS = [
+  { id: 'meta', label: 'Метаданные и SEO' },
+  { id: 'nav', label: 'Меню и навигация' },
+  { id: 'hero', label: 'Первый экран' },
+  { id: 'services', label: 'Услуги' },
+  { id: 'pricing', label: 'Прайс-лист' },
+  { id: 'calc', label: 'Калькулятор VIN' },
+  { id: 'gallery', label: 'Галерея работ' },
+  { id: 'adv', label: 'Преимущества' },
+  { id: 'form', label: 'Форма заявки' },
+  { id: 'contacts', label: 'Контакты' },
+  { id: 'footer', label: 'Подвал' },
+  { id: 'cookie', label: 'Cookie-баннер' },
+  { id: 'social', label: 'Соцсети' },
+  { id: 'legal', label: 'Юридические документы' },
+];
+
+/**
+ * Человеческое название языка — для бейджей и сообщений.
+ *
+ * @param {string} lang Код языка.
+ * @returns {string} Подпись.
+ */
+function langLabel(lang) {
+  return lang === 'hy' ? 'Армянский' : 'Русский';
+}
+
+/**
+ * Определяет раздел сайта по ключу перевода.
+ *
+ * Ключи вида 'services.ppf.name' и 'legal.privacyRu.s1.p1' дают
+ * 'services' и 'legal'. Всё, что не совпало с известным префиксом,
+ * попадает в «прочее» — так новый ключ не потеряется молча.
+ *
+ * @param {string} key Ключ перевода.
+ * @returns {string} Идентификатор раздела.
+ */
+function groupOf(key) {
+  const prefix = String(key).split('.')[0];
+  return TEXT_GROUPS.some((group) => group.id === prefix) ? prefix : 'other';
+}
+
+/**
+ * Подпись раздела по его идентификатору.
+ *
+ * @param {string} id Идентификатор.
+ * @returns {string} Подпись.
+ */
+function groupLabel(id) {
+  const found = TEXT_GROUPS.find((group) => group.id === id);
+  return found ? found.label : 'Прочее';
+}
+
+/** @type {string} Язык, который сейчас редактируется в разделе «Тексты». */
+let textsLang = 'ru';
+
+/** @type {string} Текущий поисковый запрос. */
+let textsQuery = '';
+
+/** @type {string} Выбранный раздел ('' — все). */
+let textsGroup = '';
+
+/** @type {boolean} Показывать только изменённые строки. */
+let textsOnlyChanged = false;
+
+/**
+ * Сколько строк текста рисуется за один раз.
+ *
+ * 429 textarea — это 429 полей с собственным состоянием и обработчиком
+ * ввода; браузер справляется, но ввод начинает подтормаживать на слабых
+ * машинах. Порог в 120 строк держит панель отзывчивой, а поиск всё равно
+ * сужает список до нескольких строк за одно слово. Число не «магическое»:
+ * это примерно два экрана прокрутки.
+ */
+const TEXTS_RENDER_LIMIT = 120;
+
+/**
+ * Задержка сохранения текста после последнего нажатия клавиши, мс.
+ *
+ * 900 мс — компромисс: быстрее — и на каждой паузе между словами в GitHub
+ * уходил бы отдельный коммит; медленнее — заказчик успевает закрыть
+ * вкладку и потерять правку. Уход фокуса сохраняет немедленно, поэтому
+ * таймер срабатывает только если человек продолжает печатать.
+ */
+const TEXTS_SAVE_DELAY = 900;
+
+/** @type {number} Таймер отложенного сохранения текста. */
+let textsSaveTimer = 0;
+
+/**
+ * Собирает плоский список строк словаря для отрисовки.
+ *
+ * Ключи берутся из русского словаря: он источник истины по составу.
+ * Если в армянском ключа нет, строка всё равно попадает в список — с
+ * пометкой «нет перевода», чтобы дырку было видно и можно было закрыть
+ * прямо здесь, не заходя в код.
+ *
+ * @returns {Array<{key: string, group: string, base: string, current: string, changed: boolean, missing: boolean}>}
+ */
+function collectTextRows() {
+  const all = i18n.allKeys();
+  const missingHy = new Set(i18n.missingIn('hy'));
+  return all.map((key) => {
+    const base = i18n.getBaseText(textsLang, key);
+    const override = i18n.getOverride(textsLang, key);
+    return {
+      key,
+      group: groupOf(key),
+      base,
+      current: override !== '' ? override : base,
+      changed: override !== '',
+      missing: textsLang === 'hy' && missingHy.has(key),
+    };
+  });
+}
+
+/**
+ * Фильтрует строки по запросу, разделу и флагу «только изменённые».
+ *
+ * @param {Array<Object>} rows Все строки.
+ * @returns {Array<Object>} Отфильтрованные.
+ */
+function filterTextRows(rows) {
+  const query = textsQuery.trim().toLowerCase();
+  return rows.filter((row) => {
+    if (textsOnlyChanged && !row.changed) {
+      return false;
+    }
+    if (textsGroup && row.group !== textsGroup) {
+      return false;
+    }
+    if (!query) {
+      return true;
+    }
+    // Ищем и по ключу, и по тексту на обоих языках: заказчик помнит,
+    // что написано на сайте, а не как называется переменная.
+    const ruText = i18n.getText('ru', row.key).toLowerCase();
+    const hyText = i18n.getText('hy', row.key).toLowerCase();
+    return row.key.toLowerCase().includes(query)
+      || ruText.includes(query)
+      || hyText.includes(query);
+  });
+}
+
+/**
+ * Разбирает подстановки вида {city} в строке.
+ *
+ * @param {string} value Текст.
+ * @returns {string[]} Имена подстановок в порядке появления.
+ */
+function extractPlaceholders(value) {
+  const found = [];
+  String(value).replace(/\{(\w+)\}/g, (match, name) => {
+    if (!found.includes(name)) {
+      found.push(name);
+    }
+    return match;
+  });
+  return found;
+}
+
+/**
+ * Подсвечивает в поле подстановки, которые были в исходном тексте, но
+ * пропали из текущего.
+ *
+ * Полноценный подсветить-внутри-textarea без отдельного слоя разметки не
+ * сделать, поэтому сигнал простой и честный: рамка поля краснеет, а в
+ * подсказке под полем появляется «потеряно: {city}». Заказчик видит, что
+ * именно сломалось, и не публикует текст с дыркой.
+ *
+ * @param {HTMLTextAreaElement} field Поле ввода.
+ * @param {string} key Ключ перевода.
+ * @returns {void}
+ */
+function markLostPlaceholders(field, key) {
+  const expected = extractPlaceholders(i18n.getBaseText(textsLang, key));
+  const present = extractPlaceholders(field.value);
+  const lost = expected.filter((name) => !present.includes(name));
+
+  if (lost.length) {
+    field.classList.add('is-invalid');
+  } else {
+    field.classList.remove('is-invalid');
+  }
+
+  const card = field.closest('.admin-text-row');
+  if (!card) {
+    return;
+  }
+  const hint = card.querySelector('.admin-text-row__hint');
+  if (!hint) {
+    return;
+  }
+  const existing = hint.querySelector('[data-tone="missing"]');
+  if (lost.length && !existing) {
+    hint.appendChild(el('span', {
+      class: 'admin-text-row__badge',
+      'data-tone': 'missing',
+      text: `потеряно: ${lost.map((name) => `{${name}}`).join(', ')}`,
+    }));
+  } else if (!lost.length && existing) {
+    existing.remove();
+  }
+}
+
+/**
+ * Перерисовывает список текстов целиком.
+ *
+ * Перерисовка целиком, а не точечное обновление строки: фильтры зависят
+ * от содержимого полей («только изменённые», поиск), и обновлять одну
+ * строку значило бы оставлять список в состоянии, не соответствующем
+ * текущему фильтру.
+ *
+ * Список из 429 полей не рисуется целиком ни при каких условиях: браузер
+ * создал бы 429 textarea за один кадр, и ввод начал бы подтормаживать.
+ * Поэтому действует порог TEXTS_RENDER_LIMIT, а в подсказке честно
+ * написано, сколько строк осталось за его пределами.
+ *
+ * @returns {void}
+ */
+function renderTexts() {
+  const list = $('[data-texts-list]');
+  const empty = $('[data-texts-empty]');
+  const stats = $('[data-texts-stats]');
+  if (!list) {
+    return;
+  }
+
+  const all = collectTextRows();
+  const rows = filterTextRows(all);
+  const changedTotal = all.filter((row) => row.changed).length;
+  const missingTotal = textsLang === 'hy'
+    ? all.filter((row) => row.missing).length
+    : 0;
+  const shown = rows.slice(0, TEXTS_RENDER_LIMIT);
+
+  if (stats) {
+    const parts = [
+      `Показано ${shown.length} из ${all.length}`,
+      `изменено: ${changedTotal}`,
+    ];
+    if (textsLang === 'hy') {
+      parts.push(missingTotal ? `нет перевода: ${missingTotal}` : 'перевод полный');
+    }
+    if (rows.length > shown.length) {
+      parts.push(`уточните поиск, чтобы увидеть остальные ${rows.length - shown.length}`);
+    }
+    setText(stats, parts.join(' · '));
+  }
+
+  if (empty) {
+    if (rows.length) {
+      empty.setAttribute('hidden', '');
+    } else {
+      empty.removeAttribute('hidden');
+    }
+  }
+
+  // Собираем разметку вне DOM и вставляем одним движением: так браузер
+  // пересчитывает стили один раз, а не после каждого узла.
+  const fragment = document.createDocumentFragment();
+
+  shown.forEach((row) => {
+    const card = el('div', {
+      class: 'admin-text-row',
+      'data-text-row': row.key,
+      'data-changed': row.changed ? '1' : '0',
+    });
+
+    const head = el('div', { class: 'admin-text-row__head' });
+    head.appendChild(el('span', { class: 'admin-text-row__key', text: row.key }));
+
+    const badges = el('div', { class: 'admin-text-row__badges' });
+    badges.appendChild(el('span', {
+      class: 'admin-text-row__badge',
+      text: groupLabel(row.group),
+    }));
+    if (row.missing) {
+      badges.appendChild(el('span', {
+        class: 'admin-text-row__badge',
+        'data-tone': 'missing',
+        text: 'нет перевода',
+      }));
+    }
+    if (row.changed) {
+      badges.appendChild(el('span', {
+        class: 'admin-text-row__badge',
+        'data-tone': 'changed',
+        text: 'изменено',
+      }));
+    }
+    head.appendChild(badges);
+    card.appendChild(head);
+
+    const input = el('textarea', {
+      class: 'admin-input admin-text-row__area',
+      'data-text-input': row.key,
+      'data-lang': textsLang,
+      rows: '3',
+      spellcheck: 'true',
+    });
+    input.value = row.current;
+    card.appendChild(input);
+
+    // Подстановки. Проверяем, что все исходные на месте: если заказчик
+    // стёр {city}, на сайте в этом месте будет пусто или «{city}».
+    const expected = extractPlaceholders(row.base);
+    const present = extractPlaceholders(row.current);
+    const lost = expected.filter((name) => !present.includes(name));
+
+    const foot = el('div', { class: 'admin-text-row__foot' });
+    const hint = el('div', { class: 'admin-text-row__hint' });
+    if (expected.length) {
+      setText(hint, `Подстановки: ${expected.join(', ')}`);
+      if (lost.length) {
+        hint.appendChild(el('span', {
+          class: 'admin-text-row__badge',
+          'data-tone': 'missing',
+          text: `потеряно: ${lost.map((name) => `{${name}}`).join(', ')}`,
+        }));
+      }
+    } else {
+      setText(hint, 'Без подстановок');
+    }
+    foot.appendChild(hint);
+
+    const reset = el('button', {
+      type: 'button',
+      class: 'admin-text-row__reset',
+      'data-action': 'reset-text',
+      'data-key': row.key,
+      text: 'Вернуть исходный',
+    });
+    if (!row.changed) {
+      reset.setAttribute('disabled', '');
+    }
+    foot.appendChild(reset);
+    card.appendChild(foot);
+
+    // Исходный текст показываем всегда, когда он отличается от текущего:
+    // это единственный способ увидеть, что именно было до правки.
+    if (row.changed) {
+      const base = el('span', { class: 'admin-text-row__base' });
+      base.appendChild(el('b', { text: 'Было: ' }));
+      base.appendChild(document.createTextNode(row.base || '(пусто)'));
+      card.appendChild(base);
+    }
+
+    fragment.appendChild(card);
+  });
+
+  list.replaceChildren(fragment);
+}
+
+/**
+ * Сохраняет правку одной строки, не перерисовывая список.
+ *
+ * Перерисовка здесь была бы вредна: пользователь продолжает печатать в
+ * том же поле, и замена узла textarea отняла бы у него фокус и каретку.
+ * Поэтому обновляем только бейдж и кнопку «Вернуть исходный» у этой
+ * строки, а полный renderTexts() вызывается позже и только если нужно.
+ *
+ * Пустое значение и значение, совпадающее с исходным, одинаково означают
+ * «вернуть как было»: хранить копию словаря незачем, а «изменено» должно
+ * сниматься само, когда заказчик вернул текст вручную.
+ *
+ * @param {string} key Ключ перевода.
+ * @param {string} value Новый текст.
+ * @returns {boolean} true, если что-то действительно изменилось.
+ */
+function saveTextOverride(key, value) {
+  const overrides = i18n.readTextOverrides();
+  const base = i18n.getBaseText(textsLang, key);
+  const bucket = { ...overrides[textsLang] };
+  const before = bucket[key];
+
+  if (!value.trim() || value === base) {
+    if (!Object.prototype.hasOwnProperty.call(bucket, key)) {
+      return false;
+    }
+    delete bucket[key];
+  } else {
+    if (bucket[key] === value) {
+      return false;
+    }
+    bucket[key] = value;
+  }
+
+  overrides[textsLang] = bucket;
+  // Пишем через i18n: он и в хранилище кладёт, и на странице применяет,
+  // и локальное состояние обновляет — три вещи, которые легко развести
+  // по трём местам и потом забыть одну.
+  i18n.writeTextOverrides(overrides);
+  updateTextRowState(key);
+  return true;
+}
+
+/**
+ * Обновляет бейджи и состояние кнопки у одной строки — без перерисовки поля.
+ *
+ * @param {string} key Ключ перевода.
+ * @returns {void}
+ */
+function updateTextRowState(key) {
+  const card = document.querySelector(`[data-text-row="${CSS.escape(key)}"]`);
+  if (!card) {
+    return;
+  }
+  const changed = i18n.getOverride(textsLang, key) !== '';
+  card.setAttribute('data-changed', changed ? '1' : '0');
+
+  const badges = card.querySelector('.admin-text-row__badges');
+  const existing = badges ? badges.querySelector('[data-tone="changed"]') : null;
+  if (changed && badges && !existing) {
+    badges.appendChild(el('span', {
+      class: 'admin-text-row__badge',
+      'data-tone': 'changed',
+      text: 'изменено',
+    }));
+  } else if (!changed && existing) {
+    existing.remove();
+  }
+
+  const reset = card.querySelector('[data-action="reset-text"]');
+  if (reset) {
+    if (changed) {
+      reset.removeAttribute('disabled');
+    } else {
+      reset.setAttribute('disabled', '');
+    }
+  }
+
+  // Блок «Было: …» появляется и исчезает вместе с признаком правки.
+  const baseBlock = card.querySelector('.admin-text-row__base');
+  if (changed && !baseBlock) {
+    const base = el('span', { class: 'admin-text-row__base' });
+    base.appendChild(el('b', { text: 'Было: ' }));
+    base.appendChild(document.createTextNode(i18n.getBaseText(textsLang, key) || '(пусто)'));
+    card.appendChild(base);
+  } else if (!changed && baseBlock) {
+    baseBlock.remove();
+  }
+
+  updateTextsStats();
+}
+
+/**
+ * Обновляет только строку статистики — дешевле, чем перерисовка списка.
+ *
+ * @returns {void}
+ */
+function updateTextsStats() {
+  const stats = $('[data-texts-stats]');
+  if (!stats) {
+    return;
+  }
+  const all = collectTextRows();
+  const changedTotal = all.filter((row) => row.changed).length;
+  const missingTotal = textsLang === 'hy'
+    ? all.filter((row) => row.missing).length
+    : 0;
+  const parts = [`всего строк: ${all.length}`, `изменено: ${changedTotal}`];
+  if (textsLang === 'hy') {
+    parts.push(missingTotal ? `нет перевода: ${missingTotal}` : 'перевод полный');
+  }
+  setText(stats, parts.join(' · '));
+}
+
+/**
+ * Возвращает одну строку к исходному тексту из словаря.
+ *
+ * @param {string} key Ключ перевода.
+ * @returns {void}
+ */
+function resetTextOverride(key) {
+  const overrides = i18n.readTextOverrides();
+  if (!Object.prototype.hasOwnProperty.call(overrides[textsLang], key)) {
+    return;
+  }
+  delete overrides[textsLang][key];
+  i18n.writeTextOverrides(overrides);
+  const input = document.querySelector(`[data-text-input="${CSS.escape(key)}"]`);
+  if (input) {
+    input.value = i18n.getBaseText(textsLang, key);
+  }
+  updateTextRowState(key);
+  commit('Текст возвращён к исходному');
+}
+
+/**
+ * Сбрасывает ВСЕ правки текстов на текущем языке.
+ *
+ * Подтверждение обязательно: в отличие от одной строки, здесь можно
+ * потерять часы работы над армянской вычиткой.
+ *
+ * @returns {void}
+ */
+function clearAllTexts() {
+  const rows = collectTextRows().filter((row) => row.changed);
+  if (!rows.length) {
+    toast('Изменённых текстов нет', 'err');
+    return;
+  }
+  const confirmed = window.confirm(
+    `Вернуть к исходному все ${rows.length} изменённых текстов на языке `
+    + `«${langLabel(textsLang)}»?\n\nЭто действие нельзя отменить.`
+  );
+  if (!confirmed) {
+    return;
+  }
+  const overrides = i18n.readTextOverrides();
+  overrides[textsLang] = {};
+  i18n.writeTextOverrides(overrides);
+  commit('Все тексты возвращены к исходным');
+}
+
+/**
+ * Заполняет выпадающий список разделов один раз при старте.
+ *
+ * @returns {void}
+ */
+function initTextsFilters() {
+  const select = $('[data-texts-group]');
+  if (!select || select.options.length > 1) {
+    return;
+  }
+  TEXT_GROUPS.forEach((group) => {
+    const option = el('option', { value: group.id, text: group.label });
+    select.appendChild(option);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ФИЛИАЛЫ
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1240,13 +1796,16 @@ const OVERRIDES_VERSION_LOCAL = 1;
  */
 function resetAll() {
   const confirmed = window.confirm(
-    'Сбросить все правки и вернуть заводские цены, услуги и филиалы?\n\n'
+    'Сбросить все правки?\n\n'
+    + 'Вернутся заводские цены, услуги, филиалы И все исправленные тексты '
+    + '(включая армянские) — правки текстов хранятся отдельно и тоже удаляются.\n\n'
     + 'Это действие нельзя отменить.'
   );
   if (!confirmed) {
     return;
   }
   resetOverrides();
+  i18n.clearTextOverrides();
   content = getContent();
   draft = readOverrides();
   renderAll();
@@ -1267,6 +1826,7 @@ function renderAll() {
   try {
     renderServices();
     renderGroups();
+    renderTexts();
     renderPhotos();
     renderBranches();
   } catch (error) {
@@ -1349,6 +1909,14 @@ function bindEvents() {
         runCheckAccess();
       } else if (name === 'pull-publish') {
         pullFromGithub();
+      } else if (name === 'reset-text') {
+        // Стоять здесь, а не в блоке ниже, обязательно: общий перехватчик
+        // [data-action] срабатывает первым и делает return, поэтому
+        // отдельная проверка после него никогда не выполнится. Именно на
+        // этом кнопка «Вернуть исходный» сначала молча ничего не делала.
+        resetTextOverride(action.getAttribute('data-key') || '');
+      } else if (name === 'clear-texts') {
+        clearAllTexts();
       }
       return;
     }
@@ -1475,6 +2043,86 @@ function bindEvents() {
     }
   });
 
+  // ── Тексты сайта: ввод в поле строки.
+  //
+  // Здесь нельзя сохранять на «change», как у цен: заказчик правит длинный
+  // абзац, легко кликает мимо, а если поле теряет фокус без события change
+  // (переключение вкладки, закрытие окна) — правка молча пропадёт.
+  // Поэтому слушаем «input» с задержкой: пока человек печатает, в
+  // хранилище ничего не пишется, а через секунду после последнего символа
+  // текст сохраняется, применяется к странице и уходит коммитом.
+  on(document, 'input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    const key = target.getAttribute('data-text-input');
+    if (!key) {
+      return;
+    }
+    // Подсветка потерянных подстановок — сразу, не дожидаясь сохранения:
+    // заказчик должен увидеть проблему в момент, когда стёр {city}.
+    markLostPlaceholders(target, key);
+
+    window.clearTimeout(textsSaveTimer);
+    textsSaveTimer = window.setTimeout(() => {
+      const changed = saveTextOverride(key, target.value);
+      if (changed) {
+        commit('Текст сайта обновлён');
+      }
+    }, TEXTS_SAVE_DELAY);
+  });
+
+  // ── Уход фокуса из поля текста: сохраняем немедленно, не дожидаясь
+  //    таймера. Иначе быстрый переход на другую вкладку оставил бы
+  //    правку висеть в таймере, а он может не сработать.
+  on(document, 'focusout', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    const key = target.getAttribute('data-text-input');
+    if (!key) {
+      return;
+    }
+    window.clearTimeout(textsSaveTimer);
+    if (saveTextOverride(key, target.value)) {
+      commit('Текст сайта обновлён');
+    }
+  });
+
+  // ── Фильтры раздела «Тексты»
+  on(document, 'input', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.hasAttribute('data-texts-search')) {
+      textsQuery = target.value;
+      // Поиск перерисовывает список, но карточки создаются заново —
+      // это дёшево, потому что фильтр оставляет единицы строк.
+      renderTexts();
+    }
+  });
+
+  on(document, 'change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement)) {
+      return;
+    }
+    if (target.hasAttribute('data-texts-lang')) {
+      textsLang = target.value === 'hy' ? 'hy' : 'ru';
+      renderTexts();
+      return;
+    }
+    if (target.hasAttribute('data-texts-group')) {
+      textsGroup = target.value;
+      renderTexts();
+      return;
+    }
+    if (target.hasAttribute('data-texts-changed')) {
+      textsOnlyChanged = target.checked;
+      renderTexts();
+    }
+  });
+
   // ── Ввод в полях таблицы услуг. Сохраняем на change, а не на каждый
   //    символ: иначе перерисовка на каждой букве сбивала бы курсор.
   on(document, 'change', (event) => {
@@ -1482,7 +2130,6 @@ function bindEvents() {
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
-
     const priceId = target.getAttribute('data-service-price');
     if (priceId) {
       const value = parsePrice(target.value);
@@ -2258,6 +2905,8 @@ function boot() {
 
   try {
     renderAll();
+    initTextsFilters();
+    renderTexts();
     renderPublishSettings();
     updateStatus();
     bindEvents();

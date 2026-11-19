@@ -36,6 +36,7 @@
  */
 
 import { REMOTE_FILE, applyRemote, setRemotePatch } from './content.js';
+import * as i18n from './i18n.js';
 
 /**
  * @typedef {Object} RemoteState
@@ -162,6 +163,27 @@ async function loadInternal(base, options) {
   // серверных правках только через него — мутация CONFIG им не видна.
   if (result.applied.length) {
     setRemotePatch(patch);
+  }
+
+  // ── Тексты интерфейса. Их нельзя накатить молча в CONFIG: словарь
+  // живёт в i18n, и оттуда его читает каждый узел с data-i18n. Поэтому
+  // правки из файла складываем поверх словаря явно, здесь же.
+  //
+  // Правило слияния: файл перекрывает словарь, но НЕ перекрывает местную
+  // правку — её заказчик сделал позже и, возможно, ещё не опубликовал.
+  // Иначе открытая админка теряла бы несохранённые изменения при
+  // каждой перезагрузке страницы.
+  if (patch && patch.texts && typeof patch.texts === 'object') {
+    try {
+      const local = i18n.readTextOverrides();
+      const merged = {
+        ru: { ...((patch.texts.ru) || {}), ...local.ru },
+        hy: { ...((patch.texts.hy) || {}), ...local.hy },
+      };
+      i18n.setTextOverrides(merged);
+    } catch (error) {
+      console.warn('[crystal] remote: правки текстов не применились', error);
+    }
   }
   state = {
     status: result.applied.length ? 'loaded' : 'error',

@@ -199,6 +199,14 @@ code {
   background: rgba(251, 191, 36, 0.08);
   border: 1px solid rgba(251, 191, 36, 0.28);
 }
+/* Информационный тон: предупреждать не о чем, но знать полезно.
+   Синий выбран намеренно — он не конкурирует с золотым акцентом
+   и не читается как ошибка. */
+.admin-notice--info {
+  background: rgba(96, 165, 250, 0.07);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+.admin-notice--info strong { color: #93C5FD; }
 .admin-notice strong { color: var(--c-warn); }
 
 /* ─────────────────────────── КАРКАС ─────────────────────────── */
@@ -249,6 +257,151 @@ code {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
+/* ─────────────────────────── ТЕКСТЫ САЙТА ─────────────────────────── */
+
+/* Панель фильтров. Намеренно «липкая» по верху: список из 429 строк длинный,
+   и прокручивать наверх за поиском после каждой правки — мучение. */
+.admin-texts__toolbar {
+  position: sticky;
+  top: 60px;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) repeat(2, minmax(140px, 1fr)) auto;
+  gap: var(--sp-3);
+  align-items: end;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: rgba(17, 17, 20, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.admin-field--grow { min-width: 0; }
+
+/* Галочка «только изменённые» стоит вровень с полями, а не выше:
+   выравнивание по нижнему краю уже задано у toolbar. */
+.admin-switch--inline {
+  align-self: center;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--r-sm);
+  background: var(--c-bg-alt);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.admin-texts__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+.admin-texts__meta .admin-hint { margin: 0; }
+
+.admin-texts { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.admin-texts__empty { text-align: center; padding: var(--sp-6) 0; margin: 0; }
+
+/* Одна строка словаря. Фон карточки, а не таблицы: поле ввода должно
+   растягиваться по ширине, а таблица заставляла бы считать проценты. */
+.admin-text-row {
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  background: var(--c-surface);
+  padding: var(--sp-3);
+  transition: border-color var(--dur) var(--ease);
+}
+.admin-text-row:focus-within { border-color: var(--c-lux); }
+/* Изменённая строка помечена золотой полосой слева — так видно, что
+   именно правили, даже если случайно сбросили поиск. */
+.admin-text-row[data-changed="1"] {
+  border-color: rgba(201, 162, 39, 0.45);
+  box-shadow: inset 3px 0 0 var(--c-lux);
+}
+
+.admin-text-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.admin-text-row__key {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--c-lux-soft);
+  overflow-wrap: anywhere;
+}
+.admin-text-row__badges { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.admin-text-row__badge {
+  font-size: 0.68rem;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--c-line-2);
+  color: var(--c-text-mute);
+  white-space: nowrap;
+}
+.admin-text-row__badge[data-tone="changed"] {
+  border-color: rgba(201, 162, 39, 0.5);
+  color: var(--c-lux-soft);
+}
+.admin-text-row__badge[data-tone="missing"] {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: var(--c-err);
+}
+
+/* Текст хранится с переносами строк — в юридических абзацах их нет,
+   но в подсказках встречаются, и textarea не должна их съедать. */
+.admin-text-row__input { min-height: 60px; resize: vertical; line-height: 1.55; }
+.admin-text-row__input[data-lang="hy"] { font-size: 0.92rem; }
+
+.admin-text-row__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  font-size: 0.74rem;
+  color: var(--c-text-mute);
+  flex-wrap: wrap;
+}
+.admin-text-row__hint { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.admin-text-row__hint code {
+  padding: 0 4px;
+  font-size: 0.72rem;
+}
+.admin-text-row__reset {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.74rem;
+  color: var(--c-text-dim);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.admin-text-row__reset:hover { color: var(--c-lux-soft); }
+.admin-text-row__reset:disabled { color: var(--c-text-mute); text-decoration: none; cursor: default; }
+
+/* Запасной текст приходит из словаря; в подсказке он нужен, чтобы
+   заказчик видел, к чему вернётся правка. */
+.admin-text-row__base {
+  display: block;
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--c-line);
+  font-size: 0.76rem;
+  color: var(--c-text-mute);
+  line-height: 1.5;
+}
+.admin-text-row__base b { color: var(--c-text-dim); font-weight: 600; }
+
 @media (prefers-reduced-motion: reduce) {
   .admin-panel { animation: none; }
 }
@@ -697,6 +850,18 @@ code {
   }
   .admin-nav__item { flex: 0 0 auto; white-space: nowrap; }
   .admin-notice { margin: var(--sp-4) var(--sp-4) 0; }
+
+  /* Приёмка, которая поймала это правило сначала: 390px — не тот экран,
+     где четыре поля фильтра умещаются в строку. Их было четыре колонки,
+     потому что медиазапрос стоял на 640px, а вёрстка проверялась там же
+     на предельной ширине. На 900px и ниже фильтры складываются в две
+     колонки, а «только изменённые» занимает всю ширину. */
+  .admin-texts__toolbar {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-texts__toolbar .admin-field--grow { grid-column: 1 / -1; }
+  .admin-switch--inline { grid-column: 1 / -1; justify-self: start; }
 }
 
 @media (max-width: 640px) {
@@ -719,9 +884,19 @@ code {
   .admin-price-cell .admin-input { width: 100%; }
   .admin-panel__head { flex-direction: column; }
   .admin-mode { width: 100%; }
+  /* Фильтры текстов на телефоне: три поля в одну колонку. Липкость
+     снимаем — на низком экране она съедала полвида. */
+  .admin-texts__toolbar {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+  .admin-switch--inline { justify-self: start; }
+  .admin-text-row__foot { flex-direction: column; align-items: flex-start; }
 }
 
 /* ─────────────────────────── PRINT ─────────────────────────── */
+
+/* ─────────────────────────── ПЕЧАТЬ ─────────────────────────── */
 
 @media print {
   body.admin { background: #fff; color: #000; }
