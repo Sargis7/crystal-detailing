@@ -39,6 +39,28 @@ const REQUISITE_LABELS = {
 };
 
 /**
+ * Поля, у которых есть перевод на второй язык: `name` → `nameRu`,
+ * `address` → `addressRu`.
+ *
+ * Зачем это нужно. Выписка из армянского реестра даёт наименование и
+ * адрес по-армянски, и ставить армянскую строку в русский документ
+ * нельзя: посетитель русской политики должен прочитать реквизиты, а не
+ * разбирать буквы. Обратное тоже верно — в армянском документе стоит
+ * армянский вариант. Если перевода нет, остаётся базовое значение: это
+ * честнее, чем пустая строка.
+ *
+ * Суффикс именно `Ru`, а не `Hy`, потому что базовые значения пришли из
+ * армянской выписки и по-армянски. Для российского оператора наоборот —
+ * там нечего переводить, его реквизиты по-русски в обоих словарях.
+ *
+ * @type {Record<string, string>}
+ */
+const LOCALIZED_REQUISITE_SUFFIX = {
+  name: 'Ru',
+  address: 'Ru',
+};
+
+/**
  * Запускает функцию, не позволяя её сбою остановить остальную инициализацию.
  *
  * @param {string} name Имя шага для консоли.
@@ -67,6 +89,28 @@ function resolveConfigPath(path) {
 }
 
 /**
+ * Выбирает значение реквизита с учётом языка документа.
+ *
+ * Логика та же, что у адресов филиалов в main.js (address → addressHy),
+ * но направление другое: здесь базовое значение — армянское, а
+ * `…Ru` подставляется на русской странице. Поэтому смотрим не на язык
+ * как таковой, а на конкретный суффикс из LOCALIZED_REQUISITE_SUFFIX.
+ *
+ * @param {string|null} path Путь через точку, вида 'legal.operatorAm.name'.
+ * @param {string} field Последний сегмент пути ('name', 'address', …).
+ * @returns {*} Локализованное значение, если оно есть, иначе базовое.
+ */
+function resolveRequisiteValue(path, field) {
+  const base = resolveConfigPath(path);
+  const suffix = LOCALIZED_REQUISITE_SUFFIX[field];
+  if (!suffix || !path || i18n.getLanguage() === 'hy') {
+    return base;
+  }
+  const localized = resolveConfigPath(`${path}${suffix}`);
+  return isPlaceholder(localized) ? base : localized;
+}
+
+/**
  * Наполняет один элемент реквизита.
  *
  * Три случая, и все три должны выглядеть по-разному:
@@ -82,7 +126,10 @@ function fillRequisite(node) {
   const path = node.getAttribute('data-legal-requisite');
   const field = path ? path.split('.').pop() : '';
   const labelKey = REQUISITE_LABELS[field] || null;
-  const value = resolveConfigPath(path);
+  // Значение выбирается по языку документа ДО проверки на заглушку:
+  // иначе поле с переводом, но без базового значения, показывалось бы
+  // незаполненным, хотя переводить там нечего.
+  const value = resolveRequisiteValue(path, field);
 
   node.textContent = '';
 
@@ -154,7 +201,11 @@ function applyFillState() {
   let anyFilled = false;
 
   $$('[data-legal-requisite]').forEach((node) => {
-    if (isPlaceholder(resolveConfigPath(node.getAttribute('data-legal-requisite')))) {
+    // Проверка идёт через тот же выбор по языку, что и вывод: реквизит,
+    // заполненный только переводом, не должен считаться пропущенным.
+    const path = node.getAttribute('data-legal-requisite');
+    const field = path ? path.split('.').pop() : '';
+    if (isPlaceholder(resolveRequisiteValue(path, field))) {
       anyMissing = true;
     } else {
       anyFilled = true;

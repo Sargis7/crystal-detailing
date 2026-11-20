@@ -96,6 +96,13 @@ function applyConfigToDom() {
     const path = node.getAttribute('data-config-href');
     const branchId = path.startsWith('branches.') ? path.split('.')[1] : '';
     const isPhone = path.endsWith('phoneRaw');
+    /**
+     * Путь может указывать не на телефон и не на адрес, а на строку,
+     * которой нужна своя схема: `legal.operatorAm.email` → mailto:.
+     * Без этого правила ссылка «написать письмо» вела бы на голый адрес
+     * без схемы, и браузер считал бы его относительным путём на сайте.
+     */
+    const isEmail = path.endsWith('.email');
 
     // Ссылка может быть привязана к ОСНОВНОМУ филиалу, а не к тому, чей
     // путь прописан в разметке. Так кнопка «Позвонить» на первом экране
@@ -140,7 +147,11 @@ function applyConfigToDom() {
       }
       return;
     }
-    node.setAttribute('href', isPhone ? `tel:${value}` : value);
+    if (isEmail) {
+      node.setAttribute('href', `mailto:${value}`);
+    } else {
+      node.setAttribute('href', isPhone ? `tel:${value}` : value);
+    }
     node.removeAttribute('aria-disabled');
   });
 

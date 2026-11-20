@@ -67,10 +67,25 @@ export function formatPhone(value, branch) {
   const digits = digitsOnly(value);
 
   if (branch === 'am') {
-    // Армения: +374 XX XXX XXX
+    // Армения: +374 33 880 418. Шаблон один на мобильные и городские
+    // номера, потому что в стране действует закрытый план нумерации:
+    // после +374 идут ровно восемь цифр — код оператора или города и
+    // местный номер. Поэтому группы идут по 3–3–2 от конца, а не от
+    // начала: код Абовяна (222) занимает три цифры, код мобильного (33) —
+    // две, и отрезать группу фиксированной длины от начала нельзя.
     const local = digits.startsWith('374') ? digits.slice(3) : digits;
-    const groups = [local.slice(0, 2), local.slice(2, 5), local.slice(5, 8)].filter(Boolean);
-    return `+374${groups.length ? ' ' + groups.join(' ') : ''}`;
+    const rest = local.slice(0, 8);
+    if (rest.length <= 2) {
+      return `+374${rest ? ' ' + rest : ''}`;
+    }
+    const head = rest.slice(0, 2);
+    const tail = rest.slice(2);
+    // Хвост добирается до конца только когда номер набран полностью —
+    // иначе «+374 22 2» превращалось бы в «+374 22 21 64» с чужими цифрами.
+    const tailGroups = tail.length === 6
+      ? [tail.slice(0, 3), tail.slice(3, 6)]
+      : [tail.slice(0, tail.length <= 3 ? tail.length : 3)];
+    return `+374 ${[head, ...tailGroups].filter(Boolean).join(' ')}`;
   }
 
   // Россия: +7 (XXX) XXX-XX-XX

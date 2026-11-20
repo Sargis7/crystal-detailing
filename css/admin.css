@@ -12,26 +12,34 @@
  */
 
 :root {
-  --c-bg:        #0A0A0C;
-  --c-bg-alt:    #111114;
-  --c-surface:   #18181C;
-  --c-surface-2: #202026;
-  --c-surface-3: #26262E;
+  /* Токены повторяют палитру сайта (css/style.css). Палитра взята с
+     detailing-crystal.ru: чёрная база, синий логотипа как основной акцент,
+     жёлтый как второй. Имена --c-lux* сохранены, чтобы не переписывать
+     40+ правил панели; меняется только значение. */
+  --c-bg:        #000000;
+  --c-bg-alt:    #0B0B0B;
+  --c-surface:   #0D0D0D;
+  --c-surface-2: #161616;
+  --c-surface-3: #1F1F1F;
   --c-line:      rgba(255, 255, 255, 0.08);
   --c-line-2:    rgba(255, 255, 255, 0.14);
 
-  --c-text:      #F5F5F7;
-  --c-text-dim:  #A1A1AA;
-  --c-text-mute: #71717A;
+  --c-text:      #F5F5F5;
+  --c-text-dim:  #A3A3A3;
+  --c-text-mute: #6F6F6F;
 
-  --c-lux:       #C9A227;
-  --c-lux-soft:  #E3C565;
-  --c-lux-deep:  #8A6D12;
+  --c-blue:      #0074BA;
+  --c-blue-soft: #2E96D8;
+
+  --c-lux:       #0074BA;
+  --c-lux-soft:  #2E96D8;
+  --c-lux-deep:  #005A91;
+  --c-gold:      #F4DD5B;
   --c-ok:        #4ADE80;
   --c-err:       #F87171;
-  --c-warn:      #FBBF24;
+  --c-warn:      #F4DD5B;
 
-  --grad-lux: linear-gradient(135deg, #E3C565 0%, #C9A227 45%, #8A6D12 100%);
+  --grad-lux: linear-gradient(135deg, #0072B2 0%, #0069A6 48%, #004E7E 100%);
 
   --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
@@ -100,7 +108,7 @@ code {
   width: 9px; height: 9px;
   border-radius: 50%;
   background: var(--grad-lux);
-  box-shadow: 0 0 12px rgba(201, 162, 39, 0.7);
+  box-shadow: 0 0 12px rgba(0,116,186,0.7);
   flex: 0 0 auto;
 }
 
@@ -196,17 +204,22 @@ code {
   color: var(--c-text-dim);
 }
 .admin-notice--warn {
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.28);
+  /* Жёлтый бренда (#F4DD5B) в 8% на чёрном даёт коричневый оттенок:
+     (244,221,91)*0.08 = (19,17,7) — это уже не «предупреждение», а грязь.
+     Поэтому подсветка идёт от синего, а жёлтый остаётся только в тексте
+     strong — там он читается как предупреждение и не мутит фон. */
+  background: rgba(0, 116, 186, 0.08);
+  border: 1px solid rgba(244, 221, 91, 0.34);
 }
 /* Информационный тон: предупреждать не о чем, но знать полезно.
-   Синий выбран намеренно — он не конкурирует с золотым акцентом
-   и не читается как ошибка. */
+   Синий здесь — цвет бренда, а не служебный: панель выдержана в той же
+   палитре, что и сайт, иначе переход между ними выглядит как два
+   разных продукта. */
 .admin-notice--info {
-  background: rgba(96, 165, 250, 0.07);
-  border: 1px solid rgba(96, 165, 250, 0.25);
+  background: rgba(0, 116, 186, 0.10);
+  border: 1px solid rgba(0, 116, 186, 0.32);
 }
-.admin-notice--info strong { color: #93C5FD; }
+.admin-notice--info strong { color: var(--c-blue-soft); }
 .admin-notice strong { color: var(--c-warn); }
 
 /* ─────────────────────────── КАРКАС ─────────────────────────── */
@@ -246,7 +259,7 @@ code {
 .admin-nav__item:hover { background: var(--c-surface); color: var(--c-text); }
 .admin-nav__item.is-active {
   background: var(--c-surface-2);
-  border-color: rgba(201, 162, 39, 0.35);
+  border-color: rgba(0,116,186,0.35);
   color: var(--c-lux-soft);
 }
 
@@ -315,10 +328,10 @@ code {
   transition: border-color var(--dur) var(--ease);
 }
 .admin-text-row:focus-within { border-color: var(--c-lux); }
-/* Изменённая строка помечена золотой полосой слева — так видно, что
+/* Изменённая строка помечена синей полосой слева — так видно, что
    именно правили, даже если случайно сбросили поиск. */
 .admin-text-row[data-changed="1"] {
-  border-color: rgba(201, 162, 39, 0.45);
+  border-color: rgba(0,116,186,0.45);
   box-shadow: inset 3px 0 0 var(--c-lux);
 }
 
@@ -347,7 +360,7 @@ code {
   white-space: nowrap;
 }
 .admin-text-row__badge[data-tone="changed"] {
-  border-color: rgba(201, 162, 39, 0.5);
+  border-color: rgba(0,116,186,0.5);
   color: var(--c-lux-soft);
 }
 .admin-text-row__badge[data-tone="missing"] {
@@ -480,9 +493,9 @@ code {
 
 .admin-btn--lux {
   background: var(--grad-lux);
-  color: #1A1405;
+  color: #FFFFFF;
   font-weight: 700;
-  box-shadow: 0 6px 24px -8px rgba(201, 162, 39, 0.6);
+  box-shadow: 0 6px 24px -8px rgba(0,116,186,0.6);
 }
 .admin-btn--lux:hover { filter: brightness(1.06); }
 
@@ -563,9 +576,9 @@ code {
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  background: rgba(201, 162, 39, 0.14);
+  background: rgba(0,116,186,0.2);
   color: var(--c-lux-soft);
-  border: 1px solid rgba(201, 162, 39, 0.3);
+  border: 1px solid rgba(0,116,186,0.3);
 }
 
 .admin-price-cell { display: flex; align-items: center; gap: var(--sp-2); }
@@ -752,8 +765,8 @@ code {
   background: var(--c-surface);
 }
 .admin-branch.is-primary {
-  border-color: rgba(201, 162, 39, 0.42);
-  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.12), 0 10px 40px -20px rgba(201, 162, 39, 0.4);
+  border-color: rgba(0,116,186,0.42);
+  box-shadow: 0 0 0 1px rgba(0,116,186,0.18), 0 10px 40px -20px rgba(0,116,186,0.4);
 }
 
 .admin-branch__head {
@@ -775,7 +788,7 @@ code {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   background: var(--grad-lux);
-  color: #1A1405;
+  color: #FFFFFF;
 }
 
 .admin-branch__grid {

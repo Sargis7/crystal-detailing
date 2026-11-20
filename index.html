@@ -65,7 +65,7 @@
 <header class="site-header" id="site-header" data-header>
   <div class="container header__inner">
     <a class="brand" href="#hero" aria-label="Crystal">
-      <img class="brand__mark" src="assets/logo-placeholder.svg" alt="" width="40" height="40" data-config-src="brand.logo">
+      <img class="brand__mark" src="assets/logo-mark.svg" alt="" width="726" height="174" data-config-src="brand.logo">
       <span class="brand__text">
         <span class="brand__name">Crystal</span>
         <span class="brand__tag" data-i18n="services.catDetailing">Детейлинг</span>
@@ -110,6 +110,12 @@
     <div class="hero__grid-bg" aria-hidden="true"></div>
 
     <div class="container hero__inner">
+      <!-- Полный логотип бренда: силуэт машины и надписи CRYSTAL / DETAILING.
+           Надписи есть только на латинице, поэтому подпись не переводится
+           и не дублируется — это знак, а не заголовок. -->
+      <img class="hero__logo" src="assets/logo-lockup.svg" alt="Crystal Detailing"
+           width="820" height="467" data-no-i18n>
+
       <p class="hero__badge">
         <span class="hero__badge-dot" aria-hidden="true"></span>
         <span data-i18n="hero.badge">Детейлинг-центр премиум-класса</span>
@@ -130,12 +136,11 @@
       <!-- Второй ряд кнопок: быстрые действия для тех, кто уже готов
            связаться, а не считать цену. Обе — в одной строке рядом.
            «Позвонить» ведёт на телефон основного филиала: href собирается
-           main.js из CONFIG.branches[primaryBranch].phoneRaw, поэтому номер
-           подставится сам, как только заказчик его впишет. Пока ключ пуст
-           (телефон Еревана ещё не дан), ссылка честно гасится — лучше
-           неактивная кнопка, чем звонок в никуда. -->
+           main.js из CONFIG.branches[primaryBranch].phoneRaw, поэтому при
+           смене основного филиала номер сменится сам. В разметке лежит
+           номер Еревана — он же запасной вариант, если скрипт не выполнился. -->
       <div class="hero__actions hero__actions--pair">
-        <a class="btn btn--outline btn--lg" href="tel:+79155501777"
+        <a class="btn btn--outline btn--lg" href="tel:+37433880418"
            data-config-href="branches.am.phoneRaw" data-config-follow-primary
            data-i18n="hero.ctaCall">Позвонить</a>
         <a class="btn btn--outline btn--lg" href="#form" data-i18n="hero.ctaLead">Оставить заявку</a>
@@ -809,7 +814,7 @@
             <div class="contact-card__row">
               <dt data-i18n="contacts.phoneLabel">Телефон</dt>
               <dd>
-                <a class="link" href="#" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone" data-i18n-fallback="contacts.toBeConfirmed">Уточняется у заказчика</a>
+                <a class="link" href="tel:+37433880418" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone">+374 33-880-418</a>
                 <button type="button" class="copy-btn" data-copy-phone="branches.am.phone" data-i18n-aria="contacts.copyPhone"
                   data-i18n-title="contacts.copyPhone" aria-label="Скопировать телефон" title="Скопировать телефон">⧉</button>
               </dd>
@@ -825,8 +830,12 @@
               <dt data-i18n="contacts.mapLabel">Карта</dt>
               <dd><a class="link" href="#" data-config-href="branches.am.mapUrl" data-i18n="contacts.routeLabel" data-placeholder-note>Уточняется у заказчика</a></dd>
             </div>
+            <div class="contact-card__row">
+              <dt data-i18n="contacts.emailLabel">Электронная почта</dt>
+              <dd><a class="link" href="mailto:mingay82@mail.ru" data-config-href="legal.operatorAm.email" data-config-text="legal.operatorAm.email">mingay82@mail.ru</a></dd>
+            </div>
           </dl>
-          <p class="contact-card__note" data-i18n="contacts.placeholderNoteAm">Телефон и ссылка на карту уточняются.</p>
+          <p class="contact-card__note" data-i18n="contacts.placeholderNoteAm">Телефон и карта филиала в Ереване уточняются.</p>
         </article>
 
         <article class="contact-card glass" data-contact-branch="ru">
@@ -907,7 +916,7 @@
              ui.js из CONFIG.branches, поэтому здесь только запасной текст
              для случая, когда скрипты ещё не выполнились. -->
         <li><span class="footer__text" data-config-text="branches.am.address" data-config-city="branches.am.city">Ереван, ул. Арташисян, 81/1</span></li>
-        <li><a class="footer__link" href="#" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone" data-i18n-fallback="contacts.toBeConfirmed">Уточняется у заказчика</a></li>
+        <li><a class="footer__link" href="tel:+37433880418" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone">+374 33-880-418</a></li>
         <li><a class="footer__link" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a></li>
         <li><span class="footer__text" data-config-text="branches.ru.address" data-config-city="branches.ru.city">Липецк, Универсальный проезд, 1Г</span></li>
       </ul>
