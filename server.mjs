@@ -304,14 +304,38 @@ async function serveStatic(urlPath, req, res) {
   }
 
   const ext = path.extname(full).toLowerCase();
-  const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
 
-  // index.html не кэшируем: в нём лежит разметка, которая меняется с
-  // каждым релизом, и залипший на сутки HTML ломает обновление сайта.
-  // Остальное стабильно и кэшируется надолго.
-  const cacheControl = ext === '.html'
-    ? 'public, max-age=0, must-revalidate'
-    : 'public, max-age=86400';
+  // ── Политика кэша ───────────────────────────────────────────────────
+  //
+  // Здесь была ошибка, которую стоит помнить. Сначала я отдавал всё, кроме
+  // html, с max-age=86400 — «статика же не меняется». Но js/config.js —
+  // это НЕ статика: это настройки сайта, которые заказчик правит чаще
+  // всего (телефоны, мессенджеры, режим отправки). После деплоя браузер
+  // сутки показывал старый конфиг: в исходниках телефон уже был, а кнопки
+  // WhatsApp и Telegram оставались неактивными, потому что читался
+  // закэшированный файл.
+  //
+  // Поэтому config.js и другие файлы в js/ кэшируются только с
+  // перепроверкой (no-cache + ETag): браузер каждый раз спрашивает
+  // сервер, но при совпадении ETag получает пустой 304, то есть тратит
+  // один короткий запрос вместо повторной загрузки 45 КБ.
+  //
+  // Картинки, шрифты и видео меняются редко и весят много — им длинный
+  // кэш оправдан. Если понадобится обновить картинку, достаточно сменить
+  // имя файла.
+  const isCodeOrConfig = relative.startsWith('js/') || relative.startsWith('css/');
+
+  let cacheControl;
+  if (ext === '.html') {
+    // Разметка меняется с каждым релизом: залипший HTML ломает обновление.
+    cacheControl = 'public, max-age=0, must-revalidate';
+  } else if (isCodeOrConfig) {
+    cacheControl = 'no-cache';
+  } else {
+    cacheControl = 'public, max-age=86400';
+  }
+
+  const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
 
   if (req.headers['if-none-match'] === etag) {
     res.writeHead(304, { ...STATIC_HEADERS, ETag: etag, 'Cache-Control': cacheControl });

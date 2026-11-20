@@ -100,6 +100,36 @@ try {
   r = await get('/admin.html');
   check('GET /admin.html → 200', () => assert.equal(r.status, 200));
 
+  // ── политика кэша ────────────────────────────────────────────────────
+  //
+  // Регрессия, которая уже случалась: config.js отдавался с max-age=86400,
+  // браузер сутки держал старые настройки, и после смены телефонов сайт
+  // показывал неактивные кнопки мессенджеров при верном файле на сервере.
+  r = await get('/js/config.js');
+  check('config.js не кэшируется надолго (no-cache)', () => {
+    assert.equal(r.headers.get('cache-control'), 'no-cache');
+  });
+
+  r = await get('/js/main.js');
+  check('js/ отдаётся с no-cache', () => {
+    assert.equal(r.headers.get('cache-control'), 'no-cache');
+  });
+
+  r = await get('/css/style.css');
+  check('css/ отдаётся с no-cache', () => {
+    assert.equal(r.headers.get('cache-control'), 'no-cache');
+  });
+
+  r = await get('/');
+  check('index.html перепроверяется (max-age=0)', () => {
+    assert.match(r.headers.get('cache-control'), /max-age=0/);
+  });
+
+  r = await get('/assets/favicon.svg');
+  check('картинки кэшируются надолго', () => {
+    assert.match(r.headers.get('cache-control'), /max-age=86400/);
+  });
+
   // ── 304 ──────────────────────────────────────────────────────────────
   const css = await get('/css/style.css');
   const etag = css.headers.get('etag');
