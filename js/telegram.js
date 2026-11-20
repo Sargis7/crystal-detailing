@@ -214,10 +214,32 @@ function describeTelegramError(response, payload) {
 /**
  * Выбирает транспорт по настройке CONFIG.telegram.transport.
  *
+ * Режим 'off' возвращает транспорт-заглушку, который ничего не отправляет
+ * и честно сообщает 'not_configured'. Нужен он для одной цели: если
+ * sendLead когда-нибудь вызовется в обход проверки готовности, запрос
+ * всё равно не уйдёт — а не уйдёт он в api.telegram.org с пустым токеном,
+ * где превратился бы в 404 и непонятную ошибку в консоли.
+ *
  * @returns {MessageTransport} Активный транспорт.
  */
 export function getTransport() {
   const mode = CONFIG.telegram.transport;
+
+  if (mode === 'off') {
+    return {
+      name: 'off',
+      async send(chatId, text, branch = 'ru') {
+        return {
+          ok: false,
+          status: 'not_configured',
+          targetBranch: branch,
+          targetChatId: chatId || '',
+          transport: 'off',
+          detail: 'telegram.transport = off',
+        };
+      },
+    };
+  }
 
   if (mode === 'proxy') {
     if (isPlaceholder(CONFIG.telegram.proxyUrl)) {

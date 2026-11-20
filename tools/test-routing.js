@@ -19,6 +19,21 @@ import assert from 'node:assert/strict';
 import { CONFIG, isBranchReady, normalizeBranch } from '../js/config.js';
 import { buildMessage, sendLead, getTransport } from '../js/telegram.js';
 
+/**
+ * Режим отправки, в котором собран сайт сейчас.
+ *
+ * Тесты проверяют проводку — маршрутизацию, состав сообщения, реакцию на
+ * ошибки. Проводка не зависит от того, включена ли доставка: она одинакова
+ * во всех трёх режимах. Поэтому режим на время прогона запоминается, а там,
+ * где нужен реальный путь отправки (и где раньше подразумевался 'direct'),
+ * тест сам ставит 'direct' и возвращает исходное значение.
+ *
+ * Без этого файл падал бы после каждой правки конфига: 'off' — законное
+ * состояние сайта до развёртывания serverless-функции, а не поломка.
+ */
+const MODE = CONFIG.telegram.transport;
+const ALLOWED_MODES = ['direct', 'proxy', 'off'];
+
 let passed = 0;
 let failed = 0;
 const failures = [];
@@ -106,7 +121,17 @@ await check('isBranchReady(ru) и isBranchReady(am) раздельно отсл�
   assert.equal(typeof am.ok, 'boolean');
   assert.ok(Array.isArray(ru.missing), 'missing должен быть массивом');
   assert.ok(Array.isArray(am.missing), 'missing должен быть массивом');
-  assert.ok(ru.missing.length > 0, 'в демо-режиме chat_id РФ не заполнен — missing не должен быть пуст');
+  // Раньше здесь стояло «в демо-режиме chat_id не заполнен». Теперь чат
+  // настоящий, и непустой missing даёт другая причина — выключенная
+  // отправка или незаполненный proxyUrl. Проверяем смысл, а не конкретный
+  // ключ: пока сайт не готов принимать заявки, список причин обязан быть
+  // непустым — иначе форма пообещает посетителю доставку, которой нет.
+  if (!isBranchReady(CONFIG.primaryBranch).ok) {
+    assert.ok(
+      isBranchReady(CONFIG.primaryBranch).missing.length > 0,
+      'филиал не готов, но missing пуст — посетитель не узнает причину',
+    );
+  }
 });
 
 await check('isBranchReady на несуществующем филиале не падает', () => {
@@ -116,12 +141,32 @@ await check('isBranchReady на несуществующем филиале не
 });
 
 await check('плейсхолдеры не содержат выдуманных данных (R-63)', () => {
-  // chat_id Армении в демо-режиме — заглушка, а не правдоподобный ID
-  const amChat = CONFIG.telegram.chats.am.chatId;
-  const ruChat = CONFIG.telegram.chats.ru.chatId;
-  const looksFake = (v) => /^-?\d{6,}$/.test(String(v));
-  assert.equal(looksFake(ruChat), false, `chat_id РФ = "${ruChat}" — похож на выдуманный реальный ID`);
-  assert.equal(looksFake(amChat), false, `chat_id AM = "${amChat}" — похож на выдуманный реальный ID`);
+  // Смысл R-63 — в репозиторий не должны попадать правдоподобные
+  // выдуманные значения, которые потом уедут в прод как настоящие.
+  //
+  // Секрет (токен) проверяется отдельно и строже: он не должен выглядеть
+  // как настоящий токен ни при каком режиме.
+  //
+  // chat_id — не секрет, и теперь он настоящий: -5584341581. Группа
+  // подтверждена вызовом getChat, заявки в неё доходят. Поэтому запрет
+  // «похоже на реальный ID» снят — он защищал от выдумки, а не от факта.
+  // Вместо него два осмысленных условия: id — целое отрицательное число
+  // (иначе Telegram ответит «chat not found») и один и тот же у обоих
+  // филиалов только тогда, когда заказчик действительно завёл один чат.
+  const tokenLooksReal = (v) => /^\d{7,}:[A-Za-z0-9_-]{30,}$/.test(String(v || ''));
+  assert.equal(tokenLooksReal(CONFIG.telegram.botToken), false,
+    'в публичном config.js лежит строка, похожая на настоящий токен бота');
+
+  for (const [id, chat] of Object.entries(CONFIG.telegram.chats)) {
+    if (!chat || typeof chat.chatId !== 'string') {
+      continue;
+    }
+    if (chat.chatId === '') {
+      continue; // пусто — законно, это просто «ещё не заполнено»
+    }
+    assert.ok(/^-\d{6,}$/.test(chat.chatId),
+      `chat_id «${id}» = "${chat.chatId}" — Telegram ждёт отрицательный числовой id для группы`);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,7 +181,7 @@ await check('sendLead при незаполненном конфиге → statu
   assert.equal(result.ok, false, 'ok должен быть false в демо-режиме');
   assert.equal(result.status, 'not_configured', `status=${result.status}`);
   assert.equal(capturedRequests.length, 0,
-    `выполнено ${capturedRequests.length} сетевых запросов — при пустом токене их быть не должно`);
+    `выполнено ${capturedRequests.length} сетевых запросов — при выключенной доставке их быть не должно`);
 });
 
 await check('sendLead для Армении в демо-режиме → not_configured, без сети', async () => {
@@ -226,7 +271,9 @@ const CHAT_AM = '-1002222222222';
 const originalToken = CONFIG.telegram.botToken;
 const originalRu = CONFIG.telegram.chats.ru.chatId;
 const originalAm = CONFIG.telegram.chats.am.chatId;
+const originalTransport = CONFIG.telegram.transport;
 
+CONFIG.telegram.transport = 'direct';
 CONFIG.telegram.botToken = '123456789:AAEtest_token_for_routing_check';
 CONFIG.telegram.chats.ru.chatId = CHAT_RU;
 CONFIG.telegram.chats.am.chatId = CHAT_AM;
@@ -270,7 +317,32 @@ await check('текст заявки не утекает в «чужой» ча�
   assert.ok(/Регион: Армения/.test(body.text), 'в тексте неверно указан регион');
 });
 
+// Один чат на два региона — это не ошибка конфигурации, а решение
+// заказчика, но оно должно быть осознанным. Отдельная проверка следит,
+// чтобы на боевом конфиге два ключа не оказались одинаковыми случайно:
+// при копировании конфига легко забыть поменять вторую строку, и тогда
+// лиды двух городов молча смешаются в одной ленте.
+await check('если в боевом конфиге чаты совпадают — это не забытый id, а общий чат', () => {
+  const ru = CONFIG.telegram.chats.ru && CONFIG.telegram.chats.ru.chatId;
+  const am = CONFIG.telegram.chats.am && CONFIG.telegram.chats.am.chatId;
+  if (!ru || !am || ru !== am) {
+    return; // разные чаты — вопросов нет
+  }
+  // Совпадение допустимо, но текст заявки обязан различать регион,
+  // иначе менеджер не поймёт, откуда клиент.
+  const ruText = buildMessage(payload({ branch: 'ru' }));
+  const amText = buildMessage(payload({ branch: 'am' }));
+  assert.ok(/Регион: Россия/.test(ruText), 'в заявке РФ не указан регион');
+  assert.ok(/Регион: Армения/.test(amText), 'в заявке Армении не указан регион');
+  assert.notEqual(
+    ruText.split('\n').find((l) => l.startsWith('Регион:')),
+    amText.split('\n').find((l) => l.startsWith('Регион:')),
+    'чаты совпадают и строка региона в сообщениях одинаковая — регионы не различить',
+  );
+});
+
 // Возвращаем конфиг в исходное состояние.
+CONFIG.telegram.transport = originalTransport;
 CONFIG.telegram.botToken = originalToken;
 CONFIG.telegram.chats.ru.chatId = originalRu;
 CONFIG.telegram.chats.am.chatId = originalAm;
@@ -319,12 +391,19 @@ await check('сообщение содержит все обязательные
 });
 
 await check('сообщение отправляется БЕЗ parse_mode (защита от инъекции разметки)', async () => {
+  // Проверка требует реального запроса, поэтому режим тоже подменяем.
+  CONFIG.telegram.transport = 'direct';
   CONFIG.telegram.botToken = '123456789:AAEtest_token_for_routing_check';
   CONFIG.telegram.chats.ru.chatId = CHAT_RU;
   capturedRequests = [];
   await sendLead(payload({ name: '<b>Взлом</b>', comment: '<script>alert(1)</script>' }));
+  assert.ok(capturedRequests.length > 0, 'запрос не выполнен — проверять нечего');
   const body = JSON.parse(capturedRequests[0].options.body);
   assert.equal(body.parse_mode, undefined, 'parse_mode не должен передаваться');
+  // В разметке не должно остаться возможности подставить тег: текст уходит
+  // как есть, а Telegram без parse_mode показывает его буквально.
+  assert.ok(body.text.includes('<b>Взлом</b>'), 'пользовательский текст искажён по дороге');
+  CONFIG.telegram.transport = originalTransport;
   CONFIG.telegram.botToken = originalToken;
   CONFIG.telegram.chats.ru.chatId = originalRu;
 });
@@ -360,7 +439,56 @@ await check('getTransport возвращает транспорт с метод�
   const t = getTransport();
   assert.ok(t, 'getTransport вернул пустое значение');
   assert.equal(typeof t.send, 'function', 'у транспорта нет метода send');
-  assert.ok(['direct', 'proxy'].includes(t.name), `неизвестный транспорт: ${t.name}`);
+  assert.ok(
+    [...ALLOWED_MODES].includes(t.name),
+    `неизвестный транспорт: «${t.name}», допустимы: ${ALLOWED_MODES.join(', ')}`,
+  );
+});
+
+await check('транспорт соответствует настройке CONFIG.telegram.transport', () => {
+  const t = getTransport();
+  assert.equal(t.name, MODE, `в конфиге «${MODE}», а getTransport вернул «${t.name}»`);
+});
+
+await check('режим off: транспорт ничего не отправляет и не ходит в сеть', async () => {
+  CONFIG.telegram.transport = 'off';
+  capturedRequests = [];
+  const t = getTransport();
+  assert.equal(t.name, 'off', `ожидался транспорт off, получен «${t.name}»`);
+  const result = await t.send('-5584341581', 'тест');
+  assert.equal(result.ok, false, 'в режиме off отправка не может быть успешной');
+  assert.equal(result.status, 'not_configured', `status=${result.status}`);
+  assert.equal(capturedRequests.length, 0, `в режиме off ушло ${capturedRequests.length} запросов`);
+  CONFIG.telegram.transport = originalTransport;
+});
+
+await check('режим off: sendLead не обращается к api.telegram.org', async () => {
+  CONFIG.telegram.transport = 'off';
+  capturedRequests = [];
+  const r = await sendLead(payload({ branch: 'ru' }));
+  assert.equal(r.ok, false);
+  assert.equal(r.status, 'not_configured');
+  assert.equal(capturedRequests.length, 0, 'при выключенной доставке сетевых запросов быть не должно');
+  CONFIG.telegram.transport = originalTransport;
+});
+
+await check('режим proxy: запрос уходит на proxyUrl, а не на api.telegram.org', async () => {
+  const savedProxyUrl = CONFIG.telegram.proxyUrl;
+  CONFIG.telegram.transport = 'proxy';
+  CONFIG.telegram.proxyUrl = 'https://example.test/api/telegram';
+  capturedRequests = [];
+  const r = await sendLead(payload({ branch: 'ru' }));
+  assert.equal(r.ok, true, `ok=${r.ok}, status=${r.status}`);
+  assert.equal(capturedRequests.length, 1, `запросов: ${capturedRequests.length}`);
+  const { url, options } = capturedRequests[0];
+  assert.equal(url, 'https://example.test/api/telegram', `запрос ушёл на ${url}`);
+  assert.ok(!/api\.telegram\.org/.test(url), 'в режиме proxy браузер не должен обращаться к Bot API напрямую');
+  const body = JSON.parse(options.body);
+  assert.equal(body.branch, 'ru', 'прокси не получил регион — он не сможет выбрать чат');
+  // Главная защита режима proxy: токена в клиентском запросе нет вовсе.
+  assert.ok(!/bot\d+:/.test(String(options.body)), 'в теле запроса к прокси оказался токен бота');
+  CONFIG.telegram.transport = originalTransport;
+  CONFIG.telegram.proxyUrl = savedProxyUrl;
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

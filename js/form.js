@@ -283,7 +283,14 @@ function setStatus(kind, messageKey, params = {}) {
 export function checkBranchReadiness(branch) {
   const missing = [];
 
-  if (isPlaceholder(CONFIG.telegram.botToken)) {
+  // Тот же порядок, что и в CONFIG.isBranchReady: режим 'off' отвечает
+  // первым. Иначе посетитель в выключенном режиме видел бы в подсказке
+  // «botToken» — техническое имя ключа, которое ему ни о чём не говорит.
+  if (CONFIG.telegram.transport === 'off') {
+    return { ready: false, missing: ['off'], off: true };
+  }
+
+  if (CONFIG.telegram.transport !== 'proxy' && isPlaceholder(CONFIG.telegram.botToken)) {
     missing.push('CONFIG.telegram.botToken');
   }
 
@@ -342,14 +349,31 @@ function syncBranchUi(form) {
         errorNode.hidden = true;
         setText(errorNode, '');
       } else {
-        setText(errorNode, t('form.notConfigured', { vars: readiness.missing.join(', ') }));
+        // Текст разный по причине, а не по филиалу: «отправка выключена»
+        // (режим off, серверную функцию ещё не развернули) — это состояние
+        // сайта, а «не заполнены ключи» — ошибка настройки. Посетителю
+        // показываем первое; список ключей остаётся в консоли для нас.
+        setText(errorNode, readiness.off
+          ? t('form.telegramOff')
+          : t('form.notConfigured', { vars: readiness.missing.join(', ') }));
         errorNode.hidden = false;
       }
     }
   }
 
+  // Стираем статус с прошлой попытки, чтобы он не висел после смены филиала.
+  //
+  // Раньше здесь проверялось «dataset.status === 'warning'», и это ломало
+  // ровно тот случай, ради которого статус и существует: в режиме 'off'
+  // сообщение «приём заявок приостановлен» тоже показывается как warning,
+  // и syncBranchUi из finally стирал его сразу после установки. Посетитель
+  // нажимал «Отправить» и не видел ничего.
+  //
+  // Теперь сбрасываем только 'success' — состояние «заявка ушла, форма
+  // очищена». Предупреждения и ошибки относятся к текущей попытке и должны
+  // оставаться на экране, пока посетитель их не прочитал.
   const status = $('[data-form-status]');
-  if (status && status.dataset.status === 'warning') {
+  if (status && status.dataset.status === 'success') {
     setStatus('', '');
   }
 }
@@ -516,6 +540,10 @@ async function handleSubmit(form) {
     if (result.status === 'not_configured') {
       // Это НЕ ошибка пользователя: сайт просто ещё не подключён к Telegram.
       const readiness = checkBranchReadiness(payload.branch);
+      if (readiness.off) {
+        setStatus('warning', 'form.telegramOff');
+        return;
+      }
       setStatus('warning', 'form.notConfigured', { vars: readiness.missing.join(', ') });
       return;
     }
