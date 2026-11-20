@@ -21,6 +21,7 @@ desktop.ini
 .env
 .env.*
 !.env.example
+.cdp-profile/
 
 # Редакторы.
 .vscode/
