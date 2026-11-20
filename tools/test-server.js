@@ -100,6 +100,26 @@ try {
   r = await get('/admin.html');
   check('GET /admin.html → 200', () => assert.equal(r.status, 200));
 
+  // ── расширение по умолчанию ──────────────────────────────────────────
+  //
+  // Заказчик открывает админку как crystal-detail.am/admin. Раньше это был
+  // 404, хотя /admin.html работал: в адресе страницы расширения быть не
+  // должно, дописывает его сервер.
+  r = await get('/admin');
+  check('GET /admin (без .html) → 200', () => assert.equal(r.status, 200));
+  check('GET /admin отдаёт тот же HTML, что /admin.html', () => {
+    assert.match(r.headers.get('content-type'), /text\/html/);
+    assert.match(r.headers.get('cache-control'), /max-age=0/);
+  });
+
+  // Дописывается ТОЛЬКО .html: выдуманные адреса обязаны остаться 404,
+  // иначе опечатка выглядела бы как рабочая страница.
+  r = await get('/adminx');
+  check('GET /adminx (нет .html) → 404', () => assert.equal(r.status, 404));
+
+  r = await get('/js/config');
+  check('GET /js/config без расширения → 404 (не .js)', () => assert.equal(r.status, 404));
+
   // ── политика кэша ────────────────────────────────────────────────────
   //
   // Регрессия, которая уже случалась: config.js отдавался с max-age=86400,

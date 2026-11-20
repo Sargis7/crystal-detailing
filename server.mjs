@@ -292,18 +292,49 @@ async function serveStatic(urlPath, req, res) {
     return false;
   }
 
-  let stat;
-  try {
-    stat = await fsp.stat(full);
-  } catch (error) {
+  // ── Расширение по умолчанию ─────────────────────────────────────────
+  //
+  // Заказчик открывает админку как crystal-detail.am/admin — без .html.
+  // Расширения в URL быть не должно: это адрес страницы, а не файла.
+  // Раньше такой запрос проваливался в 404, хотя /admin.html работал.
+  //
+  // Дописываем .html и только его: если файла нет, отдаём 404 как обычно.
+  // Никаких попыток угадать .htm/.json и никакой отдачи index.html —
+  // иначе любая опечатка в адресе выглядела бы как рабочая страница.
+  const candidates = [full];
+  if (!path.extname(relative)) {
+    candidates.push(`${full}.html`);
+  }
+
+  let stat = null;
+  let resolvedFull = full;
+  for (const candidate of candidates) {
+    // Проверяем границу и для дописанного варианта: relative уже прошёл
+    // isPublicPath, но лишняя проверка стоит один startsWith.
+    if (candidate !== ROOT && !candidate.startsWith(ROOT + path.sep)) {
+      continue;
+    }
+    try {
+      const candidateStat = await fsp.stat(candidate);
+      if (candidateStat.isFile()) {
+        stat = candidateStat;
+        resolvedFull = candidate;
+        break;
+      }
+      // Директория без слэша на конце: /blog → /blog/index.html.
+      if (candidateStat.isDirectory() && candidate === full) {
+        return serveStatic(`${decoded.replace(/\/+$/, '')}/index.html`, req, res);
+      }
+    } catch (error) {
+      // Файла нет — пробуем следующий вариант.
+    }
+  }
+
+  if (!stat) {
     return false;
   }
 
-  if (stat.isDirectory()) {
-    return serveStatic(`${decoded.replace(/\/+$/, '')}/index.html`, req, res);
-  }
-
-  const ext = path.extname(full).toLowerCase();
+  const ext = path.extname(resolvedFull).toLowerCase();
 
   // ── Политика кэша ───────────────────────────────────────────────────
   //
@@ -323,7 +354,11 @@ async function serveStatic(urlPath, req, res) {
   // Картинки, шрифты и видео меняются редко и весят много — им длинный
   // кэш оправдан. Если понадобится обновить картинку, достаточно сменить
   // имя файла.
-  const isCodeOrConfig = relative.startsWith('js/') || relative.startsWith('css/');
+  // Путь для политики кэша берём от реально найденного файла: у /admin
+  // файла нет, есть /admin.html, и это тот же HTML.
+  const relativeResolved = path.relative(ROOT, resolvedFull).replace(/\\/g, '/');
+  const isCodeOrConfig =
+    relativeResolved.startsWith('js/') || relativeResolved.startsWith('css/');
 
   let cacheControl;
   if (ext === '.html') {
@@ -357,7 +392,7 @@ async function serveStatic(urlPath, req, res) {
   }
 
   await new Promise((resolve, reject) => {
-    const stream = fs.createReadStream(full);
+    const stream = fs.createReadStream(resolvedFull);
     stream.on('error', reject);
     stream.on('end', resolve);
     stream.pipe(res, { end: true });

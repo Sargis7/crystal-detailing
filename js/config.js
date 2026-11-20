@@ -653,6 +653,36 @@ export const CONFIG = {
      */
     vinCalculator: false,
   },
+
+  /**
+   * Галерея работ.
+   *
+   * ⚠️ ЗАЧЕМ ЭТОТ БЛОК, ЕСЛИ ЕСТЬ GALLERY_ITEMS В js/gallery.js
+   *
+   * Сайт берёт фотографии из GALLERY_ITEMS внутри js/gallery.js, а админка
+   * искала их в CONFIG.gallery — блока не было, и админка показывала шесть
+   * пустых плиток «Фотографии нет», хотя на сайте шесть реальных снимков.
+   * Заказчик открывал админку и не видел уже загруженных работ.
+   *
+   * Теперь источник правды — здесь, а gallery.js подхватывает этот список
+   * первым и падает обратно на свой встроенный массив, если блока нет.
+   * Так админка и сайт всегда видят одно и то же.
+   *
+   * Пустой src означает «фотографии нет»: на сайте тогда рисуется
+   * premium-заглушка. Порядок в массиве — порядок плиток на странице.
+   *
+   * @type {Array<{src: string, caption?: string}>}
+   */
+  gallery: {
+    items: [
+      { src: 'assets/gallery/photo-1.jpg' },
+      { src: 'assets/gallery/photo-2.jpg' },
+      { src: 'assets/gallery/photo-3.jpg' },
+      { src: 'assets/gallery/photo-4.jpg' },
+      { src: 'assets/gallery/photo-5.jpg' },
+      { src: 'assets/gallery/photo-6.jpg' },
+    ],
+  },
 };
 
 /**

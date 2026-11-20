@@ -30,3 +30,6 @@ desktop.ini
 
 # Не коммитить локальные настройки и заметки.
 TODO.local.md
+
+# Отладочные запросы Railway GraphQL — с Internal ID проекта
+.q.json

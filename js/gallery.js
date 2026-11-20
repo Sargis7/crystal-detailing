@@ -24,6 +24,7 @@
  * @module js/gallery
  */
 
+import CONFIG from './config.js';
 import { $, $$, on, el, setText, lockScroll } from './core/dom.js';
 import { on as onBus, EVENTS } from './core/events.js';
 import { t } from './core/i18n.js';
@@ -112,9 +113,12 @@ function sourceFor(tile, index) {
   if (custom && custom.trim()) {
     return custom.trim();
   }
-  // Ожидаемый адрес реальной фотографии. Если заказчик положит её рядом
-  // с заглушкой, sourceFor(tile, index, true) вернёт именно его.
-  return GALLERY_ITEMS[index] ? GALLERY_ITEMS[index].src : '';
+  // Список берём из CONFIG.gallery.items — это тот же список, который
+  // правит админка. Встроенный GALLERY_ITEMS остаётся запасным вариантом
+  // на случай, если блок из конфига уберут.
+  const configured = (CONFIG.gallery && CONFIG.gallery.items) || [];
+  const items = configured.length ? configured : GALLERY_ITEMS;
+  return items[index] ? (items[index].src || '') : '';
 }
 
 /**

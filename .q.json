@@ -1,1 +1,0 @@
-{"query":"query($p:String!,$e:String!,$s:String!){ deployments(first:1, input:{projectId:$p, environmentId:$e, serviceId:$s}) { edges { node { status } } } }","variables":{"p":"95570d35-8773-4416-9e60-558890b77874","e":"8a449757-fff0-4844-a5f2-ab50bbea96b0","s":"52e7a531-2cdd-4706-b51c-81bccf848a84"}}
