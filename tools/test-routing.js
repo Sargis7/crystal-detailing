@@ -16,7 +16,8 @@
 'use strict';
 
 import assert from 'node:assert/strict';
-import { CONFIG, isBranchReady, normalizeBranch } from '../js/config.js';
+import { readFileSync } from 'node:fs';
+import { CONFIG, isBranchReady, isPlaceholder, normalizeBranch } from '../js/config.js';
 import { buildMessage, sendLead, getTransport } from '../js/telegram.js';
 
 /**
@@ -173,29 +174,74 @@ await check('плейсхолдеры не содержат выдуманных
 // 2. ДЕМО-РЕЖИМ: НЕТ СЕТИ, НЕТ ПАДЕНИЙ (R-33)
 // ─────────────────────────────────────────────────────────────────────────────
 
-await section('2. Демо-режим: graceful degradation (R-33)');
+await section('2. Выключенная доставка: graceful degradation (R-33)');
 
-await check('sendLead при незаполненном конфиге → status not_configured, БЕЗ сетевого запроса', async () => {
-  capturedRequests = [];
-  const result = await sendLead(payload({ branch: 'ru' }));
-  assert.equal(result.ok, false, 'ok должен быть false в демо-режиме');
-  assert.equal(result.status, 'not_configured', `status=${result.status}`);
-  assert.equal(capturedRequests.length, 0,
-    `выполнено ${capturedRequests.length} сетевых запросов — при выключенной доставке их быть не должно`);
+// Режим 'off' форсируем, а не полагаемся на текущее значение конфига.
+// Раньше этот блок молча предполагал, что транспорт и есть 'off', и
+// ломался в тот день, когда сайт перевели на 'proxy' — то есть ровно
+// тогда, когда проверка нужна меньше всего. Поведение 'off' обязано
+// проверяться при любом боевом режиме.
+const transportBeforeOff = CONFIG.telegram.transport;
+
+await check('режим off: sendLead → not_configured, БЕЗ сетевого запроса', async () => {
+  CONFIG.telegram.transport = 'off';
+  try {
+    capturedRequests = [];
+    const result = await sendLead(payload({ branch: 'ru' }));
+    assert.equal(result.ok, false, 'ok должен быть false');
+    assert.equal(result.status, 'not_configured', `status=${result.status}`);
+    assert.equal(capturedRequests.length, 0,
+      `выполнено ${capturedRequests.length} сетевых запросов — при выключенной доставке их быть не должно`);
+  } finally {
+    CONFIG.telegram.transport = transportBeforeOff;
+  }
 });
 
-await check('sendLead для Армении в демо-режиме → not_configured, без сети', async () => {
-  capturedRequests = [];
-  const result = await sendLead(payload({ branch: 'am' }));
-  assert.equal(result.status, 'not_configured');
-  assert.equal(capturedRequests.length, 0, 'сетевой запрос не должен выполняться');
+await check('режим off: sendLead для Армении → not_configured, без сети', async () => {
+  CONFIG.telegram.transport = 'off';
+  try {
+    capturedRequests = [];
+    const result = await sendLead(payload({ branch: 'am' }));
+    assert.equal(result.status, 'not_configured');
+    assert.equal(capturedRequests.length, 0, 'сетевой запрос не должен выполняться');
+  } finally {
+    CONFIG.telegram.transport = transportBeforeOff;
+  }
+});
+
+await check('режим off не отравляет состояние формы предупреждением', () => {
+  // Предупреждение режима off показывается как dataset.status = 'warning',
+  // и его нельзя стирать в syncBranchUi — иначе посетитель нажимает
+  // «Отправить» и не видит ни успеха, ни объяснения. Проверяем по
+  // исходнику: сброс обязан трогать только 'success'.
+  //
+  // Комментарии из кода вырезаем: в form.js рядом лежит пояснение, почему
+  // проверка по 'warning' была ошибкой, и без вырезания тест падал бы на
+  // собственном объяснении бага. Регулярка без этого не отличает живой
+  // код от рассказа о нём.
+  const src = readFileSync(new URL('../js/form.js', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+  assert.ok(
+    /dataset\.status === 'success'/.test(src),
+    'в form.js нет сброса статуса по \'success\'',
+  );
+  assert.ok(
+    !/dataset\.status === 'warning'/.test(src),
+    'form.js всё ещё сбрасывает статус по \'warning\' — сообщение режима off исчезнет',
+  );
 });
 
 await check('sendLead возвращает целевой филиал даже при ошибке конфига', async () => {
-  const ru = await sendLead(payload({ branch: 'ru' }));
-  const am = await sendLead(payload({ branch: 'am' }));
-  assert.equal(ru.targetBranch, 'ru', 'targetBranch РФ определён неверно');
-  assert.equal(am.targetBranch, 'am', 'targetBranch Армении определён неверно');
+  CONFIG.telegram.transport = 'off';
+  try {
+    const ru = await sendLead(payload({ branch: 'ru' }));
+    const am = await sendLead(payload({ branch: 'am' }));
+    assert.equal(ru.targetBranch, 'ru', 'targetBranch РФ определён неверно');
+    assert.equal(am.targetBranch, 'am', 'targetBranch Армении определён неверно');
+  } finally {
+    CONFIG.telegram.transport = transportBeforeOff;
+  }
 });
 
 await check('sendLead НИКОГДА не бросает исключение (мусор на входе)', async () => {
@@ -489,6 +535,23 @@ await check('режим proxy: запрос уходит на proxyUrl, а не 
   assert.ok(!/bot\d+:/.test(String(options.body)), 'в теле запроса к прокси оказался токен бота');
   CONFIG.telegram.transport = originalTransport;
   CONFIG.telegram.proxyUrl = savedProxyUrl;
+});
+
+await check('proxyUrl указывает на тот же origin (относительный путь)', () => {
+  // Сайт и прокси живут на одном домене. Абсолютный адрес здесь означал бы
+  // кросс-доменный запрос: лишний preflight, зависимость от ALLOWED_ORIGIN и
+  // поломку при смене домена. Относительный путь переживает переезд.
+  //
+  // ⚠️ Единственное исключение — GitHub Pages: там /api/telegram отвечает
+  // 404. Это осознанный компромисс: сайт на Pages перестаёт принимать
+  // заявки, но токен всё равно не утекает. Боевой адрес — crystal-detail.am.
+  const url = CONFIG.telegram.proxyUrl;
+  if (isPlaceholder(url)) return; // не настроено — ругаться не на что
+  assert.ok(
+    url.startsWith('/'),
+    `proxyUrl = "${url}" — ожидается относительный путь вида /api/telegram`,
+  );
+  assert.ok(!/^https?:\/\//.test(url), `proxyUrl не должен быть абсолютным: "${url}"`);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

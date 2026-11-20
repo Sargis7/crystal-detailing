@@ -269,21 +269,25 @@ export function getTransport() {
  * @returns {string} Готовый текст сообщения.
  */
 export function buildMessage(payload) {
-  const branch = normalizeBranch(payload.branch);
+  // Тот же защитный приём, что и в sendLead: buildMessage — публичная
+  // функция модуля, её вызывают тесты и резервный канал, и падать на
+  // null входа она не должна.
+  const lead = (payload && typeof payload === 'object') ? payload : {};
+  const branch = normalizeBranch(lead.branch);
   const branchLabel = branch === 'am' ? 'Армения (Ереван)' : 'Россия (Липецк)';
-  const langLabel = payload.lang === 'hy' ? 'армянский (hy)' : 'русский (ru)';
+  const langLabel = lead.lang === 'hy' ? 'армянский (hy)' : 'русский (ru)';
 
   const lines = [
     '🔷 НОВАЯ ЗАЯВКА — CRYSTAL',
     '─────────────────────',
     `Регион: ${branchLabel}`,
-    `Имя: ${payload.name || '—'}`,
-    `Телефон: ${payload.phone || '—'}`,
-    `Модель: ${payload.model || '—'}`,
+    `Имя: ${lead.name || '—'}`,
+    `Телефон: ${lead.phone || '—'}`,
+    `Модель: ${lead.model || '—'}`,
   ];
 
-  if (payload.calc) {
-    const calc = payload.calc;
+  if (lead.calc) {
+    const calc = lead.calc;
     lines.push(`VIN: ${calc.vin || '—'}`);
     lines.push(`Класс авто: ${calc.carClass || '—'}`);
     if (calc.make || calc.model) {
@@ -295,20 +299,20 @@ export function buildMessage(payload) {
     if (calc.priceLow && calc.priceHigh) {
       lines.push(`Ориентир цены: ${formatMoney(calc.priceLow)} — ${formatMoney(calc.priceHigh)} ₽`);
     }
-    lines.push(`Услуга: ${serviceLabel(calc.serviceId, payload.lang)}`);
+    lines.push(`Услуга: ${serviceLabel(calc.serviceId, lead.lang)}`);
   } else {
     lines.push('Услуга: —');
   }
 
-  if (payload.comment) {
-    lines.push(`Комментарий: ${payload.comment}`);
+  if (lead.comment) {
+    lines.push(`Комментарий: ${lead.comment}`);
   }
 
   lines.push('─────────────────────');
-  lines.push(`Согласие на обработку ПД: ${payload.consent ? 'получено' : 'НЕ ПОЛУЧЕНО'}`);
+  lines.push(`Согласие на обработку ПД: ${lead.consent ? 'получено' : 'НЕ ПОЛУЧЕНО'}`);
   lines.push(`Язык сайта: ${langLabel}`);
-  lines.push(`Страница: ${payload.pageUrl || '—'}`);
-  lines.push(`Время (UTC): ${payload.iso8601 || new Date().toISOString()}`);
+  lines.push(`Страница: ${lead.pageUrl || '—'}`);
+  lines.push(`Время (UTC): ${lead.iso8601 || new Date().toISOString()}`);
 
   return lines.join('\n');
 }
@@ -365,7 +369,15 @@ function serviceLabel(serviceId, lang = 'ru') {
  * @returns {Promise<SendResult>} Результат отправки.
  */
 export async function sendLead(payload) {
-  const branch = normalizeBranch(payload && payload.branch);
+  // Приводим вход к объекту один раз в начале. До этого здесь стояло
+  // `payload && payload.branch`, и этого хватало ровно до тех пор, пока
+  // транспорт не начинал реально отправлять: при 'off' до buildMessage
+  // дело не доходило, а на боевом режиме sendLead(null) падал на
+  // `payload.branch` внутри buildMessage. Функция обещает «никогда не
+  // бросает исключение», поэтому мусор на входе гасим здесь.
+  const lead = (payload && typeof payload === 'object') ? payload : {};
+
+  const branch = normalizeBranch(lead.branch);
   const transport = getTransport();
 
   const chatConfig = CONFIG.telegram.chats[branch];
@@ -394,7 +406,10 @@ export async function sendLead(payload) {
     };
   }
 
-  const text = buildMessage(payload);
+  // Филиал передаём явно: buildMessage нормализует регион тем же
+  // правилом, что и маршрутизация, поэтому подпись «Регион:» в тексте
+  // не может разойтись с чатом, куда ушло сообщение.
+  const text = buildMessage({ ...lead, branch });
   const result = await transport.send(chatId, text, branch);
 
   // Транспорт не знает о филиале для прямого режима — исправляем после ответа.
@@ -413,6 +428,7 @@ export async function sendFallback(payload) {
     return false;
   }
 
+  const lead = (payload && typeof payload === 'object') ? payload : {};
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), CONFIG.telegram.timeoutMs || 10000);
 
@@ -422,8 +438,8 @@ export async function sendFallback(payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         to: CONFIG.telegram.fallbackEmail,
-        subject: `Заявка с сайта Crystal — ${normalizeBranch(payload.branch) === 'am' ? 'Армения (Ереван)' : 'Россия (Липецк)'}`,
-        text: buildMessage(payload),
+        subject: `Заявка с сайта Crystal — ${normalizeBranch(lead.branch) === 'am' ? 'Армения (Ереван)' : 'Россия (Липецк)'}`,
+        text: buildMessage(lead),
       }),
       signal: controller.signal,
     });

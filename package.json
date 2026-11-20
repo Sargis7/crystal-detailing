@@ -1,0 +1,14 @@
+{
+  "name": "crystal-detailing",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Статический сайт Crystal Detailing и прокси для заявок в Telegram",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tools/test-routing.js && node tools/test-vin.js && node tools/test-api-telegram.js"
+  }
+}
