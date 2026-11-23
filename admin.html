@@ -107,7 +107,8 @@
 
   <!-- ── Навигация ── -->
   <nav class="admin-nav" aria-label="Разделы админки">
-    <button type="button" class="admin-nav__item is-active" data-tab="prices">Цены и услуги</button>
+    <button type="button" class="admin-nav__item" data-tab="contacts">Телефон и контакты</button>
+    <button type="button" class="admin-nav__item" data-tab="prices">Цены и услуги</button>
     <button type="button" class="admin-nav__item" data-tab="pricelist">Прайс-лист</button>
     <button type="button" class="admin-nav__item" data-tab="texts">Тексты сайта</button>
     <button type="button" class="admin-nav__item" data-tab="photos">Фотографии</button>
@@ -116,8 +117,73 @@
 
   <main class="admin-main">
 
+    <!-- ═════════ ТЕЛЕФОН И КОНТАКТЫ ═════════ -->
+    <section class="admin-panel is-active" data-panel="contacts" aria-labelledby="h-contacts">
+      <div class="admin-panel__head">
+        <div>
+          <h1 class="admin-panel__title" id="h-contacts">Телефон и контакты</h1>
+          <p class="admin-panel__text">
+            Один номер на звонки, WhatsApp и Telegram. Меняете здесь — он
+            меняется в шапке, в контактах, в подвале и в кнопках мессенджеров.
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-branch" data-phone-editor>
+        <div class="admin-branch__grid">
+          <label class="admin-field">
+            <span class="admin-field__label">Телефон как показывать</span>
+            <input class="admin-input" type="tel" data-phone-display placeholder="+374 33-880-418">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Телефон для ссылки tel: (только цифры и +)</span>
+            <input class="admin-input" type="tel" data-phone-raw placeholder="+37433880418">
+          </label>
+        </div>
+
+        <label class="admin-switch">
+          <input type="checkbox" data-phone-sync checked>
+          <span>Заполнять «для ссылки» из номера выше автоматически</span>
+        </label>
+
+        <p class="admin-hint" data-phone-preview></p>
+
+        <div class="admin-branch__actions">
+          <button type="button" class="admin-btn admin-btn--lux" data-phone-save>Сохранить номер</button>
+          <button type="button" class="admin-btn" data-phone-to-all>Применить ко всем филиалам</button>
+        </div>
+      </div>
+
+      <div class="admin-branch">
+        <h2 class="admin-branch__title">Мессенджеры</h2>
+        <p class="admin-hint">
+          Ссылки собираются из номера выше. Если поле оставить пустым,
+          кнопки на сайте гаснут. Telegram по номеру работает только при
+          включённом поиске по телефону в настройках приватности.
+        </p>
+        <div class="admin-branch__grid">
+          <label class="admin-field">
+            <span class="admin-field__label">WhatsApp</span>
+            <input class="admin-input" type="url" data-social-field="whatsapp" placeholder="https://wa.me/37433880418">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Telegram</span>
+            <input class="admin-input" type="url" data-social-field="telegram" placeholder="https://t.me/+37433880418">
+          </label>
+          <label class="admin-field">
+            <span class="admin-field__label">Instagram</span>
+            <input class="admin-input" type="url" data-social-field="instagram" placeholder="https://instagram.com/…">
+          </label>
+        </div>
+        <div class="admin-branch__actions">
+          <button type="button" class="admin-btn admin-btn--lux" data-social-save>Сохранить мессенджеры</button>
+          <button type="button" class="admin-btn" data-social-from-phone>Собрать ссылки из номера</button>
+        </div>
+      </div>
+    </section>
+
     <!-- ═════════ ЦЕНЫ И УСЛУГИ ═════════ -->
-    <section class="admin-panel is-active" data-panel="prices" aria-labelledby="h-prices">
+    <section class="admin-panel" data-panel="prices" aria-labelledby="h-prices" hidden>
       <div class="admin-panel__head">
         <div>
           <h1 class="admin-panel__title" id="h-prices">Цены и услуги</h1>

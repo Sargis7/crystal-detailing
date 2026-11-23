@@ -148,8 +148,8 @@ export const CONFIG = {
       city: 'Липецк',
       address: 'Универсальный проезд, 1Г',
       addressExtra: '',
-      phone: '+7 (915) 550-17-77',
-      phoneRaw: '+79155501777',
+      phone: '+374 33-880-418',
+      phoneRaw: '+37433880418',
       mapUrl: 'https://yandex.ru/maps/?text=%D0%9B%D0%B8%D0%BF%D0%B5%D1%86%D0%BA%2C%20%D0%A3%D0%BD%D0%B8%D0%B2%D0%B5%D1%80%D1%81%D0%B0%D0%BB%D1%8C%D0%BD%D1%8B%D0%B9%20%D0%BF%D1%80%D0%BE%D0%B5%D0%B7%D0%B4%2C%201%D0%93',
       // ЗАМЕНИТЬ при необходимости: точные координаты вместо текстового запроса.
       telegramBranch: 'ru',

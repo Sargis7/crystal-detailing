@@ -91,6 +91,19 @@ function applyConfigToDom() {
     }
   });
 
+  // data-config-primary-phone-text → текст телефона основного филиала.
+  //
+  // Отдельное правило, а не data-config-text: тот требует жёсткого пути
+  // вида branches.ru.phone, а телефон в шапке обязан следовать за
+  // primaryBranch. Пока правило было привязано к Липецку, шапка показывала
+  // российский номер при основном филиале Ереван.
+  document.querySelectorAll('[data-config-primary-phone-text]').forEach((node) => {
+    const primary = resolveConfigPath(`branches.${data().primaryBranch}.phone`);
+    if (typeof primary === 'string' && primary.trim() && !isPlaceholderValue(primary)) {
+      node.textContent = primary;
+    }
+  });
+
   // data-config-href → href у ссылки; tel: собирается из phoneRaw.
   document.querySelectorAll('[data-config-href]').forEach((node) => {
     const path = node.getAttribute('data-config-href');

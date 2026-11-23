@@ -1814,6 +1814,160 @@ function resetAll() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ТЕЛЕФОН И МЕССЕНДЖЕРЫ
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Оставляет от номера только цифры и ведущий плюс.
+ *
+ * @param {string} value Ввод пользователя.
+ * @returns {string} Номер в формате для ссылки tel:.
+ */
+function toPhoneRaw(value) {
+  const trimmed = String(value || '').trim();
+  const digits = trimmed.replace(/[^\d]/g, '');
+  return digits ? `+${digits}` : '';
+}
+
+/**
+ * Разбивает номер на группы для показа: +374 33-880-418.
+ *
+ * Зачем: заказчик вводит номер как придётся — со скобками, пробелами или
+ * слитно. Показывать его обратно «+37433880418» неудобно читать, а
+ * бросать введённое как есть значит держать на сайте три разных
+ * написания одного числа.
+ *
+ * @param {string} raw Номер с плюсом или без.
+ * @returns {string} Читаемый номер либо исходная строка, если формат незнаком.
+ */
+function formatPhone(raw) {
+  const digits = String(raw || '').replace(/[^\d]/g, '');
+  // Армения: 374 + 8 цифр (две на оператора, три-три на номер).
+  if (digits.length === 11 && digits.startsWith('374')) {
+    return `+374 ${digits.slice(3, 5)}-${digits.slice(5, 8)}-${digits.slice(8)}`;
+  }
+  // Россия: 7 + 10 цифр.
+  if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) {
+    const d = digits.startsWith('8') ? `7${digits.slice(1)}` : digits;
+    return `+7 (${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7, 9)}-${d.slice(9)}`;
+  }
+  return String(raw || '').trim();
+}
+
+/**
+ * Заполняет раздел «Телефон и контакты» из текущего состояния.
+ *
+ * @returns {void}
+ */
+function renderContacts() {
+  const raw = $('[data-phone-raw]');
+  const display = $('[data-phone-display]');
+  const preview = $('[data-phone-preview]');
+  const primaryId = content.primaryBranch;
+  const branch = (content.branches && content.branches[primaryId]) || {};
+  const rawValue = branch.phoneRaw || '';
+
+  if (raw) {
+    raw.value = rawValue;
+  }
+  if (display) {
+    display.value = branch.phone || formatPhone(rawValue);
+  }
+  if (preview) {
+    const shown = branch.phone || formatPhone(rawValue);
+    setText(
+      preview,
+      rawValue
+        ? `Основной филиал «${branch.city || primaryId}»: на сайте будет ${shown}, ссылка tel:${rawValue}`
+        : 'Номер не задан — кнопки звонка и мессенджеров на сайте погашены.'
+    );
+  }
+
+  const social = content.social || {};
+  document.querySelectorAll('[data-social-field]').forEach((input) => {
+    const network = input.getAttribute('data-social-field');
+    const value = social[network];
+    // Плейсхолдер-маркер в поле показывать нельзя: заказчик примет его за
+    // реальное значение и не поймёт, почему кнопка гаснет.
+    input.value = value && value.indexOf('[ЗАПОЛНИТЬ]') === -1 ? value : '';
+  });
+}
+
+/**
+ * Сохраняет номер телефона основного филиала и рассылает его по филиалам.
+ *
+ * @param {boolean} toAll Применить номер ко всем филиалам.
+ * @returns {void}
+ */
+function savePhone(toAll) {
+  const rawInput = $('[data-phone-raw]');
+  const displayInput = $('[data-phone-display]');
+  const raw = toPhoneRaw(rawInput ? rawInput.value : '');
+  if (!raw) {
+    toast('Номер пустой — впишите его в формате +37433880418', 'err');
+    return;
+  }
+  // Минимум 8 цифр после кода страны: иначе заказчик случайно сотрёт часть
+  // номера и на сайте появится ссылка в никуда.
+  if (raw.replace(/\D/g, '').length < 10) {
+    toast('Слишком короткий номер — проверьте, все ли цифры вписаны', 'err');
+    return;
+  }
+
+  const display = (displayInput && displayInput.value.trim()) || formatPhone(raw);
+  const ids = Object.keys(content.branches || {});
+  const targets = toAll ? ids : [content.primaryBranch];
+
+  targets.forEach((id) => {
+    if (!content.branches[id]) {
+      return;
+    }
+    content.branches[id].phoneRaw = raw;
+    content.branches[id].phone = display;
+  });
+
+  persistBranches();
+  commit(toAll ? 'Номер сохранён для всех филиалов' : 'Номер сохранён');
+}
+
+/**
+ * Сохраняет ссылки мессенджеров.
+ *
+ * @returns {void}
+ */
+function saveSocial() {
+  const social = {};
+  document.querySelectorAll('[data-social-field]').forEach((input) => {
+    social[input.getAttribute('data-social-field')] = input.value.trim();
+  });
+  draft.social = social;
+  commit('Мессенджеры сохранены');
+}
+
+/**
+ * Собирает ссылки WhatsApp и Telegram из сохранённого номера.
+ *
+ * @returns {void}
+ */
+function socialFromPhone() {
+  const branch = content.branches[content.primaryBranch] || {};
+  const digits = String(branch.phoneRaw || '').replace(/\D/g, '');
+  if (!digits) {
+    toast('Сначала сохраните номер телефона', 'err');
+    return;
+  }
+  const wa = $(`[data-social-field="whatsapp"]`);
+  const tg = $(`[data-social-field="telegram"]`);
+  if (wa) {
+    wa.value = `https://wa.me/${digits}`;
+  }
+  if (tg) {
+    tg.value = `https://t.me/+${digits}`;
+  }
+  toast('Ссылки собраны — нажмите «Сохранить мессенджеры»');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // РЕНДЕР ЦЕЛИКОМ
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1829,6 +1983,7 @@ function renderAll() {
     renderTexts();
     renderPhotos();
     renderBranches();
+    renderContacts();
   } catch (error) {
     console.error('[crystal] admin: ошибка отрисовки', error);
     toast('Не удалось отрисовать панель — подробности в консоли', 'err');
@@ -1886,6 +2041,39 @@ function bindEvents() {
     const tab = event.target instanceof Element ? event.target.closest('[data-tab]') : null;
     if (tab) {
       switchTab(tab.getAttribute('data-tab'));
+      return;
+    }
+
+    // ── Телефон и мессенджеры
+    const phoneSave = event.target instanceof Element
+      ? event.target.closest('[data-phone-save]')
+      : null;
+    if (phoneSave) {
+      savePhone(false);
+      return;
+    }
+
+    const phoneToAll = event.target instanceof Element
+      ? event.target.closest('[data-phone-to-all]')
+      : null;
+    if (phoneToAll) {
+      savePhone(true);
+      return;
+    }
+
+    const socialSave = event.target instanceof Element
+      ? event.target.closest('[data-social-save]')
+      : null;
+    if (socialSave) {
+      saveSocial();
+      return;
+    }
+
+    const socialBuild = event.target instanceof Element
+      ? event.target.closest('[data-social-from-phone]')
+      : null;
+    if (socialBuild) {
+      socialFromPhone();
       return;
     }
 
@@ -2203,6 +2391,37 @@ function bindEvents() {
       content.gallery = { items };
       draft.gallery = { items: items.map((item) => ({ src: item.src || '' })) };
       commit('Путь сохранён');
+      return;
+    }
+
+    // ── Телефон на вкладке «Телефон и контакты»
+    //
+    // Поле «как показывать» и поле «для ссылки» живут рядом, и заказчик
+    // ждёт, что второе подставится само: вписывать один номер дважды —
+    // верный способ получить на сайте ссылку tel: с чужими цифрами.
+    // Галочка синхронизации отключаема: если понадобится написать номер
+    // иначе, чем он звонится, её можно снять.
+    if (target.matches('[data-phone-display]')) {
+      const sync = $('[data-phone-sync]');
+      if (sync && sync.checked) {
+        const out = $('[data-phone-raw]');
+        if (out) {
+          out.value = toPhoneRaw(target.value);
+        }
+      }
+      const preview = $('[data-phone-preview]');
+      if (preview) {
+        const shown = target.value.trim() || 'номер не задан';
+        setText(preview, `На сайте будет ${shown}. Нажмите «Сохранить номер».`);
+      }
+      return;
+    }
+
+    if (target.matches('[data-phone-raw]')) {
+      const display = $('[data-phone-display]');
+      if (display) {
+        display.value = formatPhone(target.value);
+      }
       return;
     }
 
@@ -2716,7 +2935,14 @@ function persistBranches() {
   Object.keys(branches).forEach((id) => {
     // В дельту пишем только настоящие филиалы: служебная запись (isBranch:
     // false) живёт в базовом конфиге и переопределять её незачем.
-    if (branches[id].isBranch !== false) {
+    //
+    // ⚠️ ИСКЛЮЧЕНИЕ — ОСНОВНОЙ ФИЛИАЛ. Здесь стояла проверка без него, и
+    // телефон Еревана нельзя было сохранить вообще: заказчик менял номер,
+    // панель отвечала «Номер сохранён», а на сайте оставалось прежнее
+    // число, потому что am (isBranch: false) в дельту не попадал. Телефон
+    // основного филиала — самое частое, что здесь правят, поэтому его
+    // пишем всегда: дороже оставить заказчика с несохранённым номером.
+    if (branches[id].isBranch !== false || id === content.primaryBranch) {
       draft.branches[id] = { ...branches[id] };
     }
   });

@@ -90,7 +90,13 @@
         <button type="button" class="lang__btn" data-lang-switch="hy" aria-pressed="false">ՀԱՅ</button>
       </div>
 
-      <a class="btn btn--ghost btn--sm header__phone" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a>
+      <!-- Телефон в шапке ведёт на ОСНОВНОЙ филиал, а не на жёстко
+           прописанный Липецк. Здесь стоял branches.ru.phoneRaw, и при
+           основном филиале Ереван шапка показывала российский номер —
+           именно это видел заказчик. Теперь href собирается из
+           primaryBranch (data-config-follow-primary), а текст
+           подставляется отдельным правилом по тому же основному филиалу. -->
+      <a class="btn btn--ghost btn--sm header__phone" href="tel:+37433880418" data-config-href="branches.am.phoneRaw" data-config-follow-primary data-config-primary-phone-text>+374 33-880-418</a>
 
       <a class="btn btn--lux btn--sm header__cta" href="#pricing" data-i18n="nav.cta">Прайс-лист</a>
 
@@ -848,7 +854,7 @@
             <div class="contact-card__row">
               <dt data-i18n="contacts.phoneLabel">Телефон</dt>
               <dd>
-                <a class="link" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a>
+                <a class="link" href="tel:+37433880418" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+374 33-880-418</a>
                 <button type="button" class="copy-btn" data-copy-phone="branches.ru.phone" data-i18n-aria="contacts.copyPhone"
                   data-i18n-title="contacts.copyPhone" aria-label="Скопировать телефон" title="Скопировать телефон">⧉</button>
               </dd>
@@ -917,7 +923,7 @@
              для случая, когда скрипты ещё не выполнились. -->
         <li><span class="footer__text" data-config-text="branches.am.address" data-config-city="branches.am.city">Ереван, ул. Арташисян, 81/1</span></li>
         <li><a class="footer__link" href="tel:+37433880418" data-config-href="branches.am.phoneRaw" data-config-text="branches.am.phone">+374 33-880-418</a></li>
-        <li><a class="footer__link" href="tel:+79155501777" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+7 (915) 550-17-77</a></li>
+        <li><a class="footer__link" href="tel:+37433880418" data-config-href="branches.ru.phoneRaw" data-config-text="branches.ru.phone">+374 33-880-418</a></li>
         <li><span class="footer__text" data-config-text="branches.ru.address" data-config-city="branches.ru.city">Липецк, Универсальный проезд, 1Г</span></li>
       </ul>
       <!-- Ссылки на мессенджеры живут под видео-приветствием (см. .hero__social).
