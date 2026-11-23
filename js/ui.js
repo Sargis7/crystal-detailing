@@ -7,7 +7,7 @@
  * @module js/ui
  */
 
-import { $, $$, on, setText, setAttr, toggleClass, escapeHtml } from './core/dom.js';
+import { $, $$, on, el, setText, setAttr, toggleClass, escapeHtml } from './core/dom.js';
 import { on as onBus, EVENTS } from './core/events.js';
 import { t } from './core/i18n.js';
 import { CONFIG, isPlaceholder } from './config.js';
@@ -145,6 +145,76 @@ function priceHint(card, carClass) {
 }
 
 /**
+ * Ставит карточке фоновое фото услуги, если оно задано в админке.
+ *
+ * Фото опционально: без него карточка выглядит как раньше, с собственной
+ * заливкой и градиентом. Поэтому «нет фото» — это не ошибка, а норма,
+ * и в консоль о ней писать нечего.
+ *
+ * Картинку обязательно проверяем на загрузку. Ссылка на несуществующий
+ * файл иначе оставила бы карточку с полупрозрачным фоном и тёмным
+ * затемнением, но без фотографии — текст стал бы плохо читаемым, а
+ * причина была бы не видна. При ошибке слой убирается целиком, и
+ * карточка возвращается к обычному виду.
+ *
+ * @param {HTMLElement} card Карточка услуги.
+ * @param {Object} service Услуга из CONFIG.
+ * @returns {void}
+ */
+function renderServicePhoto(card, service) {
+  const src = typeof service.image === 'string' ? service.image.trim() : '';
+  const existing = card.querySelector('.card__photo');
+
+  if (!src || isPlaceholder(src)) {
+    // Смена языка перерисовывает карточки: фото могло быть убрано в
+    // админке, и старый слой нужно снять, а не оставить висеть.
+    if (existing) {
+      existing.remove();
+      card.classList.remove('card--has-photo');
+    }
+    const staleVeil = card.querySelector('.card__veil');
+    if (staleVeil) {
+      staleVeil.remove();
+    }
+    return;
+  }
+
+  // Уже стоит это же фото — второй раз не пересобираем: иначе каждая
+  // перерисовка заново тянула бы картинку из кэша и мигала.
+  if (existing && existing.getAttribute('data-src') === src) {
+    return;
+  }
+  if (existing) {
+    existing.remove();
+  }
+
+  const layer = el('div', { class: 'card__photo', 'data-src': src, 'aria-hidden': 'true' });
+  const img = el('img', { src, alt: '', loading: 'lazy', decoding: 'async' });
+
+  img.addEventListener('error', () => {
+    // Файла нет или путь с опечаткой: убираем затемнение вместе с фото,
+    // иначе текст остался бы на тёмной подложке без картинки.
+    layer.remove();
+    const veil = card.querySelector('.card__veil');
+    if (veil) {
+      veil.remove();
+    }
+    card.classList.remove('card--has-photo');
+    console.warn(`[crystal] ui: фото услуги "${service.id}" не загрузилось: ${src}`);
+  });
+
+  layer.appendChild(img);
+
+  // Порядок важен: фото первым, затем затемнение. Слой затемнения
+  // создаём только если его ещё нет.
+  card.insertBefore(layer, card.firstChild);
+  if (!card.querySelector('.card__veil')) {
+    card.insertBefore(el('div', { class: 'card__veil', 'aria-hidden': 'true' }), layer.nextSibling);
+  }
+  card.classList.add('card--has-photo');
+}
+
+/**
  * Приводит одну карточку услуги к состоянию, которое задаёт CONFIG.
  *
  * Число берётся из CONFIG (basePrice × множитель класса), а не из
@@ -177,6 +247,8 @@ function renderServiceCard(card, priceNode) {
   const currencyNode = card.querySelector('.card__price-cur');
   const hintNode = card.querySelector('.card__hint');
   const linkNode = card.querySelector('.card__link');
+
+  renderServicePhoto(card, service);
 
   const parsedClass = Number(classRaw);
   const carClass = Number.isInteger(parsedClass) && parsedClass >= 1 && parsedClass <= 5

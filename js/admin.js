@@ -660,9 +660,58 @@ function renderServices() {
         'aria-label': `Удалить услугу «${name}»`,
       }, ['Удалить']));
 
+      // ── Фоновое фото карточки
+      //
+      // Путь текстом ИЛИ файл из проводника — по той же логике, что в
+      // разделе «Фотографии»: у файла нет «значения», читаемого из общего
+      // поля, поэтому у каждой строки свой скрытый input.
+      const imageWrap = el('div', { class: 'admin-svc__image' });
+      const imageValue = String(service.image || '');
+      const imageThumb = el('div', { class: 'admin-svc__thumb' });
+      if (imageValue && imageValue.indexOf('[ЗАПОЛНИТЬ]') === -1) {
+        // alt пустой: это превью выбранного фона, а не содержательная
+        // картинка — скринридеру оно ничего не добавляет.
+        imageThumb.appendChild(el('img', { src: imageValue, alt: '' }));
+      } else {
+        imageThumb.appendChild(el('span', { class: 'admin-svc__thumb-empty', text: 'нет' }));
+      }
+      const imageInput = el('input', {
+        class: 'admin-input',
+        type: 'text',
+        value: imageValue.indexOf('[ЗАПОЛНИТЬ]') === -1 ? imageValue : '',
+        placeholder: 'assets/gallery/photo-1.jpg',
+        'data-service-image': id,
+        'aria-label': `Путь к фоновому фото услуги «${name}»`,
+      });
+      const imageRow = el('div', { class: 'admin-svc__image-row' });
+      imageRow.appendChild(el('button', {
+        type: 'button',
+        class: 'admin-btn admin-btn--mini',
+        'data-service-image-file': id,
+        'aria-label': `Выбрать файл фона для услуги «${name}»`,
+      }, ['Файл']));
+      if (imageValue) {
+        imageRow.appendChild(el('button', {
+          type: 'button',
+          class: 'admin-btn admin-btn--mini is-danger',
+          'data-service-image-clear': id,
+          'aria-label': `Убрать фон услуги «${name}»`,
+        }, ['×']));
+      }
+      imageWrap.appendChild(imageThumb);
+      imageWrap.appendChild(imageInput);
+      imageWrap.appendChild(imageRow);
+      imageWrap.appendChild(el('input', {
+        type: 'file',
+        accept: 'image/*',
+        'data-service-image-input': id,
+        hidden: '',
+      }));
+
       body.appendChild(el('tr', { 'data-service-row': id }, [
         el('td', { class: 'admin-table__cellnum', text: String(index + 1).padStart(2, '0') }),
         el('td', {}, [nameWrap]),
+        el('td', {}, [imageWrap]),
         el('td', {}, [priceWrap]),
         el('td', {}, [scaleLabel]),
         el('td', {}, [actions]),
@@ -699,11 +748,77 @@ function persistServices() {
     if (service.desc) {
       item.desc = service.desc;
     }
+    // Путь к фоновому фото. Пустая строка — законное значение «фона нет»,
+    // и оно обязано пережить сохранение: иначе снять фото было бы нельзя,
+    // потому что ключ просто исчезал бы из дельты.
+    if (typeof service.image === 'string') {
+      item.image = service.image;
+    }
     return item;
   });
   // Цены теперь живут внутри services. Отдельный патч prices, оставшийся
   // от прошлой версии, удаляем: два источника одной величины разошлись бы.
   delete draft.prices;
+}
+
+/**
+ * Записывает путь к фоновому фото услуги и сохраняет.
+ *
+ * @param {string} id Идентификатор услуги.
+ * @param {string} value Путь к картинке.
+ * @returns {void}
+ */
+function setServiceImage(id, value) {
+  const service = (content.pricing.services || []).find((item) => item.id === id);
+  if (!service) {
+    return;
+  }
+  service.image = String(value || '').trim();
+  persistServices();
+  commit('Фото услуги сохранено');
+}
+
+/**
+ * Убирает фоновое фото услуги.
+ *
+ * @param {string} id Идентификатор услуги.
+ * @returns {void}
+ */
+function clearServiceImage(id) {
+  setServiceImage(id, '');
+}
+
+/**
+ * Читает выбранный файл как data URL и ставит его фоном услуги.
+ *
+ * Лимит ниже, чем у галереи (там 700 КБ), и по той же причине: localStorage
+ * даёт около 5 МБ, а base64 раздувает файл на треть. Девять фонов по 700 КБ
+ * в квоту уже не влезут, поэтому порог для карточек ниже — иначе заказчик
+ * заполнит все девять и потеряет последние правки молча.
+ *
+ * @param {string} id Идентификатор услуги.
+ * @param {File} file Файл из input.
+ * @returns {void}
+ */
+function readServiceImageFile(id, file) {
+  if (!file) {
+    return;
+  }
+  if (file.size > 300 * 1024) {
+    toast(
+      `Файл ${Math.round(file.size / 1024)} КБ — слишком большой: девять таких фонов `
+      + 'не поместятся в память браузера. Уменьшите фото или положите его '
+      + 'в assets/gallery/ и укажите путь текстом.',
+      'err'
+    );
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    setServiceImage(id, String(reader.result || ''));
+  };
+  reader.onerror = () => toast('Не удалось прочитать файл', 'err');
+  reader.readAsDataURL(file);
 }
 
 /**
@@ -2169,6 +2284,27 @@ function bindEvents() {
       return;
     }
 
+    // ── Фоновое фото услуги: выбрать файл или убрать
+    const svcImageFile = event.target instanceof Element
+      ? event.target.closest('[data-service-image-file]')
+      : null;
+    if (svcImageFile) {
+      const id = svcImageFile.getAttribute('data-service-image-file');
+      const input = document.querySelector(`[data-service-image-input="${id}"]`);
+      if (input) {
+        input.click();
+      }
+      return;
+    }
+
+    const svcImageClear = event.target instanceof Element
+      ? event.target.closest('[data-service-image-clear]')
+      : null;
+    if (svcImageClear) {
+      clearServiceImage(svcImageClear.getAttribute('data-service-image-clear'));
+      return;
+    }
+
     // ── Фотографии
     const photoFile = event.target instanceof Element
       ? event.target.closest('[data-photo-file]')
@@ -2425,6 +2561,13 @@ function bindEvents() {
       return;
     }
 
+    // ── Путь к фону услуги
+    const imageId = target.getAttribute('data-service-image');
+    if (imageId !== null) {
+      setServiceImage(imageId, target.value);
+      return;
+    }
+
     // ── Поля филиала
     const branchId = target.getAttribute('data-branch-id');
     const branchField = target.getAttribute('data-branch-field');
@@ -2460,6 +2603,21 @@ function bindEvents() {
     const index = target.getAttribute('data-photo-file-input');
     if (index !== null && target.files && target.files[0]) {
       readPhotoFile(Number(index), target.files[0]);
+      // Сбрасываем input: иначе повторный выбор того же файла не вызовет
+      // change, и заказчик решит, что кнопка не работает.
+      target.value = '';
+    }
+  });
+
+  // ── Файл фона услуги выбран
+  on(document, 'change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+    const serviceId = target.getAttribute('data-service-image-input');
+    if (serviceId !== null && target.files && target.files[0]) {
+      readServiceImageFile(serviceId, target.files[0]);
       // Сбрасываем input: иначе повторный выбор того же файла не вызовет
       // change, и заказчик решит, что кнопка не работает.
       target.value = '';

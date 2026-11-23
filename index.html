@@ -74,9 +74,11 @@
 
     <nav class="nav" id="primary-nav" data-nav data-i18n-aria="nav.menu" aria-label="Меню">
       <ul class="nav__list">
+        <!-- Порядок ссылок повторяет порядок разделов на странице:
+             работы идут сразу после первого экрана, до услуг. -->
+        <li><a class="nav__link" href="#gallery" data-i18n="nav.gallery">Работы</a></li>
         <li><a class="nav__link" href="#services" data-i18n="nav.services">Услуги</a></li>
         <li><a class="nav__link" href="#pricing" data-i18n="nav.pricing">Прайс-лист</a></li>
-        <li><a class="nav__link" href="#gallery" data-i18n="nav.gallery">Работы</a></li>
         <li><a class="nav__link" href="#advantages" data-i18n="nav.advantages">Преимущества</a></li>
         <li><a class="nav__link" href="#contacts" data-i18n="nav.contacts">Контакты</a></li>
       </ul>
@@ -221,6 +223,71 @@
         <span data-i18n="hero.scrollHint">Листайте вниз</span>
         <span class="hero__scroll-arrow"></span>
       </a>
+    </div>
+  </section>
+
+  <!-- ═══════════ ГАЛЕРЕЯ РАБОТ ═══════════ -->
+  <section class="section" id="gallery">
+    <div class="container">
+      <header class="section__head">
+        <h2 class="section__title" data-i18n="gallery.title">Наши работы</h2>
+        <p class="section__subtitle" data-i18n="gallery.subtitle">Фотографии выполненных заказов.</p>
+      </header>
+
+      <!-- Плитки галереи. В разметке нет ни одного <img> намеренно: плитка
+           без фото выглядит как спроектированный элемент (градиент, свечение,
+           номер), а битая картинка — как ошибка вёрстки. Фотографии подставляет
+           js/gallery.js из CONFIG.gallery.items, а в админке их можно заменить
+           через атрибут data-gallery-src на самой плитке. -->
+      <div class="gallery" data-gallery>
+        <button type="button" class="g-tile" data-gallery-item data-index="0">
+          <span class="g-tile__bg g-tile__bg--1" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">01</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 1</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile g-tile--wide" data-gallery-item data-index="1">
+          <span class="g-tile__bg g-tile__bg--2" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">02</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 2</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile" data-gallery-item data-index="2">
+          <span class="g-tile__bg g-tile__bg--3" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">03</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 3</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile" data-gallery-item data-index="3">
+          <span class="g-tile__bg g-tile__bg--4" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">04</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 4</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile" data-gallery-item data-index="4">
+          <span class="g-tile__bg g-tile__bg--5" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">05</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 5</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+
+        <button type="button" class="g-tile g-tile--tall" data-gallery-item data-index="5">
+          <span class="g-tile__bg g-tile__bg--6" aria-hidden="true"></span>
+          <span class="g-tile__veil" aria-hidden="true"></span>
+          <span class="g-tile__num" aria-hidden="true">06</span>
+          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 6</span>
+          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
+        </button>
+      </div>
     </div>
   </section>
 
@@ -559,72 +626,6 @@
           <a class="btn btn--lux" href="#form" data-i18n="pricing.ctaLead">Узнать точную цену</a>
           <a class="btn btn--ghost" href="#services" data-i18n="pricing.ctaServices">Описание услуг</a>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══════════ ГАЛЕРЕЯ РАБОТ ═══════════ -->
-  <section class="section" id="gallery">
-    <div class="container">
-      <header class="section__head">
-        <h2 class="section__title" data-i18n="gallery.title">Наши работы</h2>
-        <p class="section__subtitle" data-i18n="gallery.subtitle">Фотографии выполненных заказов.</p>
-      </header>
-
-      <!-- Плитки галереи. Реальных фотографий у нас нет, поэтому каждая
-           плитка — premium-заглушка: градиент, свечение, номер и подпись
-           «Замените это фото на реальную работу». Битых <img> здесь нет
-           намеренно: они выглядят как ошибка вёрстки, а заглушка — как
-           спроектированный элемент. Атрибут data-gallery-src закомментирован
-           в README: чтобы поставить фото, добавьте <img> внутрь плитки. -->
-      <div class="gallery" data-gallery>
-        <button type="button" class="g-tile" data-gallery-item data-index="0">
-          <span class="g-tile__bg g-tile__bg--1" aria-hidden="true"></span>
-          <span class="g-tile__veil" aria-hidden="true"></span>
-          <span class="g-tile__num" aria-hidden="true">01</span>
-          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 1</span>
-          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
-        </button>
-
-        <button type="button" class="g-tile g-tile--wide" data-gallery-item data-index="1">
-          <span class="g-tile__bg g-tile__bg--2" aria-hidden="true"></span>
-          <span class="g-tile__veil" aria-hidden="true"></span>
-          <span class="g-tile__num" aria-hidden="true">02</span>
-          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 2</span>
-          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
-        </button>
-
-        <button type="button" class="g-tile" data-gallery-item data-index="2">
-          <span class="g-tile__bg g-tile__bg--3" aria-hidden="true"></span>
-          <span class="g-tile__veil" aria-hidden="true"></span>
-          <span class="g-tile__num" aria-hidden="true">03</span>
-          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 3</span>
-          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
-        </button>
-
-        <button type="button" class="g-tile" data-gallery-item data-index="3">
-          <span class="g-tile__bg g-tile__bg--4" aria-hidden="true"></span>
-          <span class="g-tile__veil" aria-hidden="true"></span>
-          <span class="g-tile__num" aria-hidden="true">04</span>
-          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 4</span>
-          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
-        </button>
-
-        <button type="button" class="g-tile" data-gallery-item data-index="4">
-          <span class="g-tile__bg g-tile__bg--5" aria-hidden="true"></span>
-          <span class="g-tile__veil" aria-hidden="true"></span>
-          <span class="g-tile__num" aria-hidden="true">05</span>
-          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 5</span>
-          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
-        </button>
-
-        <button type="button" class="g-tile g-tile--tall" data-gallery-item data-index="5">
-          <span class="g-tile__bg g-tile__bg--6" aria-hidden="true"></span>
-          <span class="g-tile__veil" aria-hidden="true"></span>
-          <span class="g-tile__num" aria-hidden="true">06</span>
-          <span class="g-tile__label" data-i18n="gallery.slotLabel">Работа 6</span>
-          <span class="g-tile__hint" data-i18n="gallery.slotHint">Замените это фото на реальную работу</span>
-        </button>
       </div>
     </div>
   </section>

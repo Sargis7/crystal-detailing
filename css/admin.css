@@ -559,6 +559,26 @@ code {
 .admin-table__cellnum { font-variant-numeric: tabular-nums; color: var(--c-text-mute); font-size: 0.78rem; }
 
 .admin-svc__name { display: block; font-weight: 600; }
+
+/* ── Фоновое фото услуги в таблице ───────────────────────────────────
+   Превью узкое намеренно: в таблице услуг колонка фона не главная,
+   а широкая картинка выдавила бы цену и действия за экран.
+   210px мало для пути целиком (assets/gallery/photo-1.jpg обрезался),
+   но поле прокручивается по горизонтали и целиком видно по фокусу. */
+.admin-table__photo { width: 230px; min-width: 230px; }
+.admin-svc__image { display: flex; flex-direction: column; gap: 6px; }
+.admin-svc__thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, #1A1A20 0%, #121216 100%);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.admin-svc__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.admin-svc__thumb-empty { font-size: 0.72rem; color: var(--c-text-mute); }
+.admin-svc__image-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .admin-svc__id {
   display: block;
   margin-top: 2px;

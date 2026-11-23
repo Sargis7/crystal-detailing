@@ -1361,6 +1361,61 @@
   }
   .card:hover .card__shine { left: 130%; }
 
+  /* ── Фоновое фото карточки услуги ────────────────────────────────────
+     Заказчик ставит своё фото через админку (CONFIG.pricing.services[].image).
+
+     Фото лежит отдельным слоем под содержимым, а не как background-image
+     самой карточки: иначе пришлось бы собирать поверх него градиент
+     строкой в style, и любой кавычка в data URL ломала бы разметку.
+     Слой .card__photo держит picture, .card__veil — затемнение.
+
+     Текст обязан оставаться читаемым на ЛЮБОЙ фотографии, поэтому
+     затемнение двойное: сплошная тёмная подложка снизу вверх плюс общий
+     полупрозрачный слой. Одного градиента мало — светлое фото (белый
+     автомобиль на снегу) съедало белый заголовок целиком. */
+  .card__photo {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .card__photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .card__veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    pointer-events: none;
+    /* Плотность подобрана так, чтобы фото было видно, но контраст
+       текста не падал ниже требований доступности. */
+    background:
+      linear-gradient(180deg, rgba(10,10,12,0.28) 0%, rgba(10,10,12,0.72) 62%, rgba(10,10,12,0.9) 100%),
+      rgba(10,10,12,0.34);
+  }
+
+  /* Содержимое поверх фото. Без z-index текст оказался бы под слоями:
+     они абсолютные и идут в разметке раньше. */
+  .card--has-photo > *:not(.card__photo):not(.card__veil):not(.card__shine) {
+    position: relative;
+    z-index: 2;
+  }
+  .card--has-photo .card__shine { z-index: 3; }
+
+  /* Карточка с фото перестаёт быть плоской: убираем собственную заливку,
+     иначе она гасит фотографию, и добавляем рамку поярче. */
+  .card--has-photo {
+    background: rgba(12,12,15,0.9);
+    border-color: rgba(255,255,255,0.1);
+  }
+
   .card__icon {
     width: 52px; height: 52px;
     display: inline-flex;
