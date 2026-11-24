@@ -358,11 +358,23 @@ export const CONFIG = {
      * Примечание: комплекс-мойка удалена из прайса по просьбе заказчика
      * (ноябрь 2026) — «убери детейлинг мойку». Её карточка и ключи
      * переводов тоже удалены, чтобы не осталось «мёртвого» текста.
+     *
+     * Поле `image` — фоновое фото карточки. Девять услуг, девять фото;
+     * файлы лежат в assets/gallery/service-<id>.jpg и готовятся скриптом
+     * tools/prepare-service-photos.mjs из исходников заказчика. Путь
+     * относительный, как у галереи: сайт живёт и в корне домена, и на
+     * GitHub Pages в подкаталоге, поэтому ведущий слэш тут сломал бы
+     * вторую площадку.
+     *
+     * Заменять фото можно двумя способами: через админку («Цены и услуги»
+     * → колонка «Фон, фото») или положив новый файл в assets/gallery/ и
+     * поправив путь здесь. Первый способ не требует пересборки сайта,
+     * второй — работает для всех посетителей сразу.
      */
     services: [
       // ═══ ДЕТЕЙЛИНГ ═══
       // якорь «3 класс (джип, внедорожник) — 6 000 ₽» → 6000 / 1.15 ≈ 5217
-      { id: 'engine-bay', basePrice: 5217, scaleByClass: true, order: 1 },
+      { id: 'engine-bay', basePrice: 5217, scaleByClass: true, order: 1, image: 'assets/gallery/service-engine-bay.jpg' },
 
       // ═══ ЗАЩИТА КУЗОВА ═══
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. Бронеплёнка считается погонным метром
@@ -370,36 +382,36 @@ export const CONFIG = {
       // не может по природе услуги. Здесь стоит стартовая цена за частичную
       // оклейку (зоны риска: капот, бампер, зеркала). Замените на реальную
       // перед публикацией; при priceMode = 'on-request' число не показывается.
-      { id: 'ppf', basePrice: 45000, scaleByClass: true, order: 2 },
+      { id: 'ppf', basePrice: 45000, scaleByClass: true, order: 2, image: 'assets/gallery/service-ppf.jpg' },
 
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. Полная оклейка кузова плёнкой
       // (смена цвета) — тоже площадь, а не класс автомобиля.
-      { id: 'wrap-full', basePrice: 180000, scaleByClass: true, order: 3 },
+      { id: 'wrap-full', basePrice: 180000, scaleByClass: true, order: 3, image: 'assets/gallery/service-wrap-full.jpg' },
 
       // «от 20 000 ₽» — фиксированная цена-минимум, классом не масштабируется
-      { id: 'antichrome', basePrice: 20000, scaleByClass: false, order: 4 },
+      { id: 'antichrome', basePrice: 20000, scaleByClass: false, order: 4, image: 'assets/gallery/service-antichrome.jpg' },
 
       // ═══ ТОНИРОВКА ═══
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. Тонировка задней полусферы —
       // самая частая позиция. Цена зависит от числа стёкол и типа плёнки.
-      { id: 'tint', basePrice: 12000, scaleByClass: true, order: 5 },
+      { id: 'tint', basePrice: 12000, scaleByClass: true, order: 5, image: 'assets/gallery/service-tint.jpg' },
 
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. Атермальная плёнка на лобовое стекло
       // и передние стёкла: материал дороже обычной тонировки.
-      { id: 'tint-athermal', basePrice: 18000, scaleByClass: true, order: 6 },
+      { id: 'tint-athermal', basePrice: 18000, scaleByClass: true, order: 6, image: 'assets/gallery/service-tint-athermal.jpg' },
 
       // ═══ ПОЛИРОВКА И ЗАЩИТА ═══
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. В старом прайсе этой позиции нет:
       // 12 000 ₽ — осмысленный пример, чтобы модуль цен был проверяем.
-      { id: 'polish', basePrice: 12000, scaleByClass: true, order: 7 },
+      { id: 'polish', basePrice: 12000, scaleByClass: true, order: 7, image: 'assets/gallery/service-polish.jpg' },
 
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. Керамическое покрытие — самая
       // дорогая позиция детейлинга, зависит от числа слоёв.
-      { id: 'ceramic', basePrice: 35000, scaleByClass: true, order: 8 },
+      { id: 'ceramic', basePrice: 35000, scaleByClass: true, order: 8, image: 'assets/gallery/service-ceramic.jpg' },
 
       // ⚠️ НЕ ПОДТВЕРЖДЕНО ЗАКАЗЧИКОМ. Химчистка салона: цена сильно
       // зависит от площади салона и материала обивки.
-      { id: 'interior', basePrice: 25000, scaleByClass: true, order: 9 },
+      { id: 'interior', basePrice: 25000, scaleByClass: true, order: 9, image: 'assets/gallery/service-interior.jpg' },
     ],
 
     /** Класс по умолчанию, если модель по VIN распознать не удалось. */

@@ -33,3 +33,9 @@ TODO.local.md
 
 # Отладочные запросы Railway GraphQL — с Internal ID проекта
 .q.json
+
+# Зависимости. Сайт намеренно без них: в рантайме работает только Node
+# со стандартной библиотекой, поэтому package-lock и node_modules в
+# репозитории не нужны. Ставятся они лишь для сборки картинок —
+# `npm install --no-save sharp` перед запуском tools/prepare-service-photos.mjs.
+node_modules/

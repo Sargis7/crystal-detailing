@@ -3,6 +3,8 @@
  * Запуск: node tools/check-pricing.mjs
  * Используется и QA как готовый тест-кейс.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import { quote } from '../js/vin/pricing.js';
 import { CONFIG } from '../js/config.js';
 
@@ -40,6 +42,63 @@ console.log('defaultClass =', CONFIG.pricing.defaultClass,
 const hasRemoved = (CONFIG.pricing.services || []).some((s) => s.id === 'complex-wash');
 console.log('комплекс-мойка удалена из CONFIG:', hasRemoved ? 'FAIL — вернулась' : 'OK');
 if (hasRemoved) fails++;
+
+// ── Фоновые фото услуг ────────────────────────────────────────────────
+//
+// Проверяем две вещи, каждая из которых уже случалась или почти случилась:
+//
+//   1) путь задан у КАЖДОЙ услуги. Заказчик просил «девять услуг — девять
+//      фото», и карточка без фона на фоне остальных выглядит как недоделка.
+//   2) файл по этому пути СУЩЕСТВУЕТ. Опечатка в имени даёт битую картинку,
+//      которую видно только в браузере: HTML и CSS при этом валидны, а
+//      на сервере 404 прилетает уже в рантайме. Такую ошибку дешевле
+//      поймать здесь.
+//
+// Путь относительный и без ведущего слэша: сайт живёт и в корне домена,
+// и на GitHub Pages в подкаталоге /crystal-detailing/, где абсолютный
+// путь вида /assets/... увёл бы на чужой корень.
+console.log('---');
+const services = CONFIG.pricing.services || [];
+const rootDir = path.resolve(import.meta.dirname, '..');
+
+const noImage = services.filter((s) => typeof s.image !== 'string' || !s.image.trim());
+if (noImage.length) {
+  fails += noImage.length;
+  console.log(`FAIL  без фонового фото: ${noImage.map((s) => s.id).join(', ')}`);
+} else {
+  console.log(`PASS  фоновое фото задано у всех ${services.length} услуг`);
+}
+
+const missingFiles = [];
+const absolutePaths = [];
+for (const service of services) {
+  const src = typeof service.image === 'string' ? service.image.trim() : '';
+  if (!src) {
+    continue;
+  }
+  if (src.startsWith('/') || /^[a-z]+:/i.test(src)) {
+    absolutePaths.push(`${service.id} → ${src}`);
+    continue;
+  }
+  if (!fs.existsSync(path.join(rootDir, src))) {
+    missingFiles.push(`${service.id} → ${src}`);
+  }
+}
+
+if (missingFiles.length) {
+  fails += missingFiles.length;
+  console.log(`FAIL  файла нет на диске: ${missingFiles.join(', ')}`);
+} else {
+  console.log('PASS  все файлы фонов найдены на диске');
+}
+
+if (absolutePaths.length) {
+  fails += absolutePaths.length;
+  console.log(`FAIL  путь должен быть относительным: ${absolutePaths.join(', ')}`);
+} else {
+  console.log('PASS  пути относительные (работает и на GitHub Pages в подкаталоге)');
+}
+
 console.log('---');
 console.log(fails === 0 ? 'ALL ANCHORS PASS' : `${fails} FAILURES`);
 process.exit(fails === 0 ? 0 : 1);
